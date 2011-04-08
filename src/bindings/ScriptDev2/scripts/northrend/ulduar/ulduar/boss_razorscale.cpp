@@ -16,8 +16,8 @@
 
 /* ScriptData
 SDName: boss_razorscale
-SD%Complete:
-SDComment: harpoons display should change when clicked
+SD%Complete: 95%
+SDComment: harpoons display should change when clicked. sometimes boss does not react on harpoon shot
 SDCategory: Ulduar
 EndScriptData */
 
@@ -489,12 +489,12 @@ struct MANGOS_DLL_DECL boss_razorscaleAI : public ScriptedAI
 {
     boss_razorscaleAI(Creature* pCreature) : ScriptedAI(pCreature) 
 	{
-		m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+		m_pInstance = (instance_ulduar*)pCreature->GetInstanceData();
         m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
 		Reset();
 	}
 
-	ScriptedInstance* m_pInstance;
+	instance_ulduar* m_pInstance;
     bool m_bIsRegularMode;
 
 	uint32 m_uiFireball_Timer;
@@ -542,7 +542,6 @@ struct MANGOS_DLL_DECL boss_razorscaleAI : public ScriptedAI
 		m_bAirphase         = false;
 		m_bIsGrounded       = false;
 		m_bHasBerserk       = false;
-        m_uiFlyNo           = 0;
         m_uiHarpoonsUsed    = 0;
         BreakHarpoons(false);
         lHarpoons.clear();
@@ -561,6 +560,11 @@ struct MANGOS_DLL_DECL boss_razorscaleAI : public ScriptedAI
 
         MoveEngineers(true);
         m_lEngineersGUID.clear();
+
+        // achievement
+        m_uiFlyNo = 0;
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_ACHI_QUICK_SHAVE, DONE);
     }
 
 	void JustDied(Unit* pKiller)
@@ -690,6 +694,18 @@ struct MANGOS_DLL_DECL boss_razorscaleAI : public ScriptedAI
                     }
                 }
             }
+        }
+    }
+
+    void SpellHitTarget(Unit *pVictim, SpellEntry const *spellInfo)
+    {
+        if (!m_pInstance || spellInfo->Id != (m_bIsRegularMode ? SPELL_FLAME_BREATH : SPELL_FLAME_BREATH_H))
+            return;
+
+        if (pVictim->GetEntry() == MOB_DARK_RUNE_GUARDIAN)
+        {
+            if (!pVictim->isAlive())
+                m_pInstance->IronDwarfPushBack(pVictim->GetGUID());
         }
     }
 
@@ -856,6 +872,11 @@ struct MANGOS_DLL_DECL boss_razorscaleAI : public ScriptedAI
                 m_creature->AddSplineFlag(SPLINEFLAG_FLYING);
                 // achiev counter
                 m_uiFlyNo += 1;
+                if (m_uiFlyNo > 1)
+                {
+                    if (m_pInstance)
+                        m_pInstance->SetData(TYPE_ACHI_QUICK_SHAVE, FAIL);
+                }
                 m_bIsGrounded               = false;
             }else m_uiGrounded_Timer -= uiDiff;
         }

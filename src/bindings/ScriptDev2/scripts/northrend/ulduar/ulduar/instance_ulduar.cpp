@@ -132,6 +132,17 @@ void instance_ulduar::Initialize()
     m_uiBrainDoor2GUID      = 0;
     m_uiBrainDoor3GUID      = 0;
 
+    // achievements
+    m_bQuickShave = true;
+    m_bShattered = false;
+    m_bNerfEngi = true;
+    m_bNerfGravity = true;
+    m_bChooseMolg = false;
+    m_bChooseBrun = false;
+    m_bChooseSteel = false;
+    m_bCantDoThat = true;
+    m_lIronDwarvesAchievList.clear();
+
     // Leviathan not implemented, so set it as DONE
     SetData(TYPE_LEVIATHAN, DONE);
     SetData(TYPE_LEVIATHAN_TP, DONE);
@@ -814,6 +825,47 @@ void instance_ulduar::SetData(uint32 uiType, uint32 uiData)
     case TYPE_VISION_PHASE:
         m_uiVisionPhase = uiData;
         break;
+
+    // achievements
+    case TYPE_ACHI_QUICK_SHAVE:
+        m_bQuickShave = (uiData == DONE);
+        break;
+    case TYPE_ACHI_SHATTERED:
+        m_bShattered = (uiData == DONE);
+        break;
+    case TYPE_ACHI_NERF_ENGI:
+        m_bNerfEngi = (uiData == DONE);
+        break;
+    case TYPE_ACHI_NERF_GRAVITY:
+        m_bNerfGravity = (uiData == DONE);
+        break;
+    case TYPE_ACHI_CHOOSE_MOLG:
+        m_bChooseMolg = (uiData == DONE);
+        break;
+    case TYPE_ACHI_CHOOSE_BRUN:
+        m_bChooseBrun = (uiData == DONE);
+        break;
+    case TYPE_ACHI_CHOOSE_STEEL:
+        m_bChooseSteel = (uiData == DONE);
+        break;
+    case TYPE_ACHI_CANT_DO_THAT:
+        m_bCantDoThat = (uiData == DONE);
+        break;
+    case TYPE_ACHI_OPEN_ARMS:
+        m_bOpenArms = (uiData == DONE);
+        break;
+    case TYPE_ACHI_IF_LOOKS:
+        m_bIfLooks = (uiData == DONE);
+        break;
+    case TYPE_ACHI_RUBBLE_ROLL:
+        m_bRubbleRoll = (uiData == DONE);
+        break;
+    case TYPE_ACHI_CAT_LADY:
+        m_bCatLady = (uiData == DONE);
+        break;
+    case TYPE_ACHI_NINE_LIVES:
+        m_bNineLives = (uiData == DONE);
+        break;
     }
 
     if (uiData == DONE || uiData == FAIL)
@@ -919,14 +971,101 @@ uint64 instance_ulduar::GetData64(uint32 uiData)
     return 0;
 }
 
-// TODO: implement all achievs here!
-bool instance_ulduar::CheckAchievementCriteriaMeet(uint32 criteria_id, const Player *source)
+void instance_ulduar::IronDwarfPushBack(uint64 uiGuid)
 {
-    switch(criteria_id)
+    m_lIronDwarvesAchievList.push_back(uiGuid);
+}
+
+bool instance_ulduar::CheckAchievementCriteriaMeet(uint32 uiCriteriaId, Player const* pSource, Unit const* pTarget, uint32 uiMiscValue1 /* = 0*/)
+{
+    switch(uiCriteriaId)
     {
-    case ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET:
-        break;
+        case ACHIEV_CRIT_QUICK_SHAVE_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_QUICK_SHAVE);
+        case ACHIEV_CRIT_QUICK_SHAVE_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_QUICK_SHAVE);
+        case ACHIEV_CRIT_IRON_DWARF_10:
+            if (!instance->IsRegularDifficulty())
+                return false;
+
+            for (std::list<uint64>::const_iterator itr = m_lIronDwarvesAchievList.begin(); itr != m_lIronDwarvesAchievList.end(); ++itr)
+            {
+                if (pTarget && (*itr) == pTarget->GetGUID())
+                    return true;
+            }
+            break;
+        case ACHIEV_CRIT_IRON_DWARF_25:
+            if (instance->IsRegularDifficulty())
+                return false;
+
+            for (std::list<uint64>::const_iterator itr = m_lIronDwarvesAchievList.begin(); itr != m_lIronDwarvesAchievList.end(); ++itr)
+            {
+                if (pTarget && (*itr) == pTarget->GetGUID())
+                    return true;
+            }
+            break;
+        case ACHIEV_CRIT_SHATTERED_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_SHATTERED);
+        case ACHIEV_CRIT_SHATTERED_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_SHATTERED);
+        case ACHIEV_CRIT_NERF_ENGI_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_NERF_ENGI);
+        case ACHIEV_CRIT_NERF_ENGI_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_NERF_ENGI);
+        case ACHIEV_CRIT_NERF_GRAVITY_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_NERF_GRAVITY);
+        case ACHIEV_CRIT_NERF_GRAVITY_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_NERF_GRAVITY);
+        case ACHIEV_CRIT_CHOOSE_MOLG_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CHOOSE_MOLG);
+        case ACHIEV_CRIT_CHOOSE_MOLG_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CHOOSE_MOLG);
+        case ACHIEV_CRIT_CHOOSE_BRUN_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CHOOSE_BRUN);
+        case ACHIEV_CRIT_CHOOSE_BRUN_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CHOOSE_BRUN);
+        case ACHIEV_CRIT_CHOOSE_STEEL_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CHOOSE_STEEL);
+        case ACHIEV_CRIT_CHOOSE_STEEL_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CHOOSE_STEEL);
+        case ACHIEV_CRIT_UR_SIDE_MOLG_10:
+        case ACHIEV_CRIT_UR_SIDE_BRUN_10:
+        case ACHIEV_CRIT_UR_SIDE_STEEL_10:
+            return instance->IsRegularDifficulty() && (GetData(TYPE_ASSEMBLY) == DONE);
+        case ACHIEV_CRIT_UR_SIDE_MOLG_25:
+        case ACHIEV_CRIT_UR_SIDE_BRUN_25:
+        case ACHIEV_CRIT_UR_SIDE_STEEL_25:
+            return !instance->IsRegularDifficulty() && (GetData(TYPE_ASSEMBLY) == DONE);
+        case ACHIEV_CRIT_CANTDOTHAT_M_10:
+        case ACHIEV_CRIT_CANTDOTHAT_B_10:
+        case ACHIEV_CRIT_CANTDOTHAT_S_10:
+            return (instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CANT_DO_THAT) && (GetData(TYPE_ASSEMBLY) == DONE));
+        case ACHIEV_CRIT_CANTDOTHAT_M_25:
+        case ACHIEV_CRIT_CANTDOTHAT_B_25:
+        case ACHIEV_CRIT_CANTDOTHAT_S_25:
+            return (!instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CANT_DO_THAT) && (GetData(TYPE_ASSEMBLY) == DONE));
+        case ACHIEV_CRIT_OPEN_ARMS_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_OPEN_ARMS);
+        case ACHIEV_CRIT_OPEN_ARMS_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_OPEN_ARMS);
+        case ACHIEV_CRIT_IF_LOOKS_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_IF_LOOKS);
+        case ACHIEV_CRIT_IF_LOOKS_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_IF_LOOKS);
+        case ACHIEV_CRIT_RUBBLE_ROLL_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_RUBBLE_ROLL);
+        case ACHIEV_CRIT_RUBBLE_ROLL_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_RUBBLE_ROLL);
+        case ACHIEV_CRIT_CAT_LADY_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CAT_LADY);
+        case ACHIEV_CRIT_CAT_LADY_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CAT_LADY);
+        case ACHIEV_CRIT_NINE_LIVES_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_NINE_LIVES);
+        case ACHIEV_CRIT_NINE_LIVES_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_NINE_LIVES);
     }
+
     return false;
 }
 
@@ -1036,6 +1175,34 @@ uint32 instance_ulduar::GetData(uint32 uiType)
         return m_uiYoggPhase;
     case TYPE_VISION_PHASE:
         return m_uiVisionPhase;
+
+    // achievements
+    case TYPE_ACHI_QUICK_SHAVE:
+        return m_bQuickShave;
+    case TYPE_ACHI_SHATTERED:
+        return m_bShattered;
+    case TYPE_ACHI_NERF_ENGI:
+        return m_bNerfEngi;
+    case TYPE_ACHI_NERF_GRAVITY:
+        return m_bNerfGravity;
+    case TYPE_ACHI_CHOOSE_MOLG:
+        return m_bChooseMolg;
+    case TYPE_ACHI_CHOOSE_BRUN:
+        return m_bChooseBrun;
+    case TYPE_ACHI_CHOOSE_STEEL:
+        return m_bChooseSteel;
+    case TYPE_ACHI_CANT_DO_THAT:
+        return m_bCantDoThat;
+    case TYPE_ACHI_OPEN_ARMS:
+        return m_bOpenArms;
+    case TYPE_ACHI_IF_LOOKS:
+        return m_bIfLooks;
+    case TYPE_ACHI_RUBBLE_ROLL:
+        return m_bRubbleRoll;
+    case TYPE_ACHI_CAT_LADY:
+        return m_bCatLady;
+    case TYPE_ACHI_NINE_LIVES:
+        return m_bNineLives;
     }
 
     return 0;
