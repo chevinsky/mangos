@@ -64,6 +64,24 @@ bool ChatHandler::HandleDebugSendSpellFailCommand(char* args)
     return true;
 }
 
+bool ChatHandler::HandleDebugSendCalendarResultCommand(char* args)
+{
+    if (!*args)
+        return false;
+
+    char* c_val = strtok((char*)args, " ");
+    if (!c_val)
+        return false;
+
+    int Value = atoi(c_val);
+
+    char* c_str = strtok(NULL, "");
+    std::string str = c_str;
+
+    m_session->GetPlayer()->SendCalendarResult(CalendarResponseResult(Value), str);
+    return true;
+}
+
 bool ChatHandler::HandleDebugSendPoiCommand(char* args)
 {
     Player *pPlayer = m_session->GetPlayer();
@@ -642,41 +660,6 @@ bool ChatHandler::HandleDebugBattlegroundCommand(char* /*args*/)
 bool ChatHandler::HandleDebugArenaCommand(char* /*args*/)
 {
     sBattleGroundMgr.ToggleArenaTesting();
-    return true;
-}
-
-bool ChatHandler::HandleDebugSpawnVehicleCommand(char* args)
-{
-    uint32 entry;
-    if (!ExtractUInt32(&args, entry))
-        return false;
-
-    uint32 id;
-    if (!ExtractUInt32(&args, id))
-        return false;
-
-    CreatureInfo const *ci = ObjectMgr::GetCreatureTemplate(entry);
-    if (!ci)
-        return false;
-
-    VehicleEntry const *ve = sVehicleStore.LookupEntry(id);
-    if (!ve)
-        return false;
-
-    Player* chr = m_session->GetPlayer();
-
-    Vehicle *v = new Vehicle;
-
-    CreatureCreatePos pos(chr, chr->GetOrientation());
-
-    if (!v->Create(pos.GetMap()->GenerateLocalLowGuid(HIGHGUID_VEHICLE), pos, entry, id, chr->GetTeam()))
-    {
-        delete v;
-        return false;
-    }
-
-    pos.GetMap()->Add((Creature*)v);
-
     return true;
 }
 

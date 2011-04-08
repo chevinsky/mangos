@@ -39,7 +39,9 @@ bool Totem::Create(uint32 guidlow, CreatureCreatePos& cPos, uint32 Entry, Unit* 
 
     Team team = owner->GetTypeId() == TYPEID_PLAYER ? ((Player*)owner)->GetTeam() : TEAM_NONE;
 
-    if (!CreateFromProto(guidlow, Entry, team))
+    ObjectGuid guid(HIGHGUID_UNIT, Entry, guidlow);
+
+    if (!CreateFromProto(guid, Entry, team))
         return false;
 
     // special model selection case for totems
@@ -176,9 +178,13 @@ void Totem::SetTypeBySummonSpell(SpellEntry const * spellProto)
         // If spell have cast time -> so its active totem
         if (GetSpellCastTime(totemSpell))
             m_type = TOTEM_ACTIVE;
+
+        if(totemSpell->Id == 40132 || totemSpell->Id == 40133)
+            m_type = TOTEM_PASSIVE;                             // Shaman summoning totems
     }
     if(spellProto->SpellIconID == 2056)
         m_type = TOTEM_STATUE;                              //Jewelery statue
+
 }
 
 bool Totem::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index) const

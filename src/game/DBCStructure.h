@@ -790,6 +790,18 @@ struct CurrencyTypesEntry
     uint32    BitIndex;                                     // 3        bit index in PLAYER_FIELD_KNOWN_CURRENCIES (1 << (index-1))
 };
 
+struct DungeonEncounterEntry
+{
+    uint32 Id;                                              // 0        unique id
+    uint32 mapId;                                           // 1        map id
+    uint32 Difficulty;                                      // 2        instance mode
+    uint32 encounterData;                                   // 3        time to reach?
+    uint32 encounterIndex;                                  // 4        encounter index for creating completed mask
+    char*  encounterName[16];                               // 5-20     encounter name
+    //uint32 nameFlags;                                     // 21       language flags
+    //uint32 unk1;                                          // 22
+};
+
 struct DurabilityCostsEntry
 {
     uint32    Itemlvl;                                      // 0
@@ -907,8 +919,12 @@ struct GameObjectDisplayInfoEntry
     uint32      Displayid;                                  // 0        m_ID
     // char* filename;                                      // 1
     // uint32 unknown2[10];                                 // 2-11     unknown data
-    float  unknown12;                                       // 12-17    unknown size data, use first value as interact dist, mostly in hacks way
-    // float  unknown13[5];                                 // 12-17    unknown size data
+    float       minX;
+    float       minY;
+    float       minZ;
+    float       maxX;
+    float       maxY;
+    float       maxZ;
     // uint32 unknown18;                                    // 18       unknown data
 };
 
@@ -1124,6 +1140,45 @@ struct ItemSetEntry
     uint32    required_skill_value;                         // 52       m_requiredSkillRank
 };
 
+struct LFGDungeonEntry
+{
+    uint32  ID;                                             // 0
+    //char*   name[16];                                     // 1-17 Name lang
+    uint32  minlevel;                                       // 18
+    uint32  maxlevel;                                       // 19
+    uint32  reclevel;                                       // 20
+    uint32  recminlevel;                                    // 21
+    uint32  recmaxlevel;                                    // 22
+    uint32  map;                                            // 23
+    uint32  difficulty;                                     // 24
+    //uint32  unk;                                          // 25
+    uint32  type;                                           // 26
+    //uint32  unk2;                                         // 27
+    //char*   unk3;                                         // 28
+    uint32  expansion;                                      // 29
+    //uint32  unk4;                                         // 30
+    uint32  grouptype;                                      // 31
+    //char*   desc[16];                                     // 32-47 Description
+    //uint32 unk5                                           // 48 language flags?
+    // Helpers
+    uint32 Entry() const { return ID + (type << 24); }
+};
+
+struct LFGDungeonExpansionEntry
+{
+    uint32  ID;                                             // 0 id
+    uint32  dungeonID;                                      // 1 LFGDungeonEntry.ID
+    uint32  expansion;                                      // 2 expansion
+    uint32  randomEntry;                                    // 3 LFGDungeonEntry.ID (only random ids!), inside of which is used this record
+    uint32  minlevel;                                       // 4
+    uint32  maxlevel;                                       // 5
+    uint32  recminlevel;                                    // 6
+    uint32  recmaxlevel;                                    // 7
+    // Helpers
+    bool IsRandom() const { return randomEntry == 0; }
+};
+
+
 #define MAX_LOCK_CASE 8
 
 struct LockEntry
@@ -1164,7 +1219,7 @@ struct MapEntry
     float   ghost_entrance_y;                               // 61 entrance y coordinate in ghost mode  (in most cases = normal entrance)
     //uint32  timeOfDayOverride;                            // 62 time of day override
     uint32  addon;                                          // 63 expansion
-                                                            // 64 some kind of time?
+    uint32  instanceResetOffset;                            // 64 offset used instead of first period while creating reset table
     //uint32 maxPlayers;                                    // 65 max players
 
     // Helpers
@@ -1198,8 +1253,8 @@ struct MapDifficultyEntry
     //uint32      Id;                                       // 0
     uint32      MapId;                                      // 1
     uint32      Difficulty;                                 // 2 (for arenas: arena slot)
-    //char*       areaTriggerText[16];                      // 3-18 text showed when transfer to map failed (missing requirements)
-    //uint32      textFlags;                                // 19
+    char*       areaTriggerText[16];                      // 3-18 text showed when transfer to map failed (missing requirements)
+    uint32      mapDifficultyFlags;                         // 19
     uint32      resetTime;                                  // 20, in secs, 0 if no fixed reset time
     uint32      maxPlayers;                                 // 21, some heroic versions have 0 when expected same amount as in normal version
     //char*       difficultyString;                         // 22
@@ -1646,9 +1701,9 @@ struct SpellItemEnchantmentEntry
     uint32      slot;                                       // 32       m_flags
     uint32      GemID;                                      // 33       m_src_itemID
     uint32      EnchantmentCondition;                       // 34       m_condition_id
-    //uint32      requiredSkill;                            // 35       m_requiredSkillID
-    //uint32      requiredSkillValue;                       // 36       m_requiredSkillRank
-                                                            // 37       new in 3.1
+    uint32      requiredSkill;                              // 35       m_requiredSkillID
+    uint32      requiredSkillValue;                         // 36       m_requiredSkillRank
+    uint32      requiredLevel;                              // 37       m_requiredLevel
 };
 
 struct SpellItemEnchantmentConditionEntry
@@ -1797,7 +1852,7 @@ struct VehicleEntry
     uint32  m_uiLocomotionType;                             // 34
     float   m_msslTrgtImpactTexRadius;                      // 35
     uint32  m_uiSeatIndicatorType;                          // 36
-                                                            // 37, new in 3.1 - powerType
+    uint32  m_powerType;                                    // 37, new in 3.1 - powerType
                                                             // 38, new in 3.1
                                                             // 39, new in 3.1
 };
@@ -1851,6 +1906,7 @@ struct VehicleSeatEntry
     int32   m_uiSkin;                                       // 44
     uint32  m_flagsB;                                       // 45
                                                             // 46-57 added in 3.1, floats mostly
+    bool IsUsable() const { return m_flags & SEAT_FLAG_USABLE; }
 };
 
 struct WMOAreaTableEntry
@@ -1868,6 +1924,7 @@ struct WMOAreaTableEntry
     uint32 areaId;                                          // 10 link to AreaTableEntry.ID
     //char *Name[16];
     //uint32 nameFlags;
+
 };
 
 struct WorldMapAreaEntry

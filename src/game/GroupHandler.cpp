@@ -208,6 +208,10 @@ void WorldSession::HandleGroupAcceptOpcode( WorldPacket & recv_data )
     // everything is fine, do it, PLAYER'S GROUP IS SET IN ADDMEMBER!!!
     if(!group->AddMember(GetPlayer()->GetObjectGuid(), GetPlayer()->GetName()))
         return;
+
+    // Frozen Mod
+    group->BroadcastGroupUpdate();
+    // Frozen Mod
 }
 
 void WorldSession::HandleGroupDeclineOpcode( WorldPacket & /*recv_data*/ )
@@ -543,12 +547,15 @@ void WorldSession::HandleGroupChangeSubGroupOpcode( WorldPacket & recv_data )
 void WorldSession::HandleGroupAssistantLeaderOpcode( WorldPacket & recv_data )
 {
     ObjectGuid guid;
-    uint8 flag;
+    uint8 apply;
     recv_data >> guid;
-    recv_data >> flag;
+    recv_data >> apply;
+
+    DEBUG_LOG("CMSG_GROUP_ASSISTANT_LEADER: guid %u, apply %u",guid.GetCounter(),apply);
 
     Group *group = GetPlayer()->GetGroup();
-    if (!group)
+
+    if (!group || !group->isRaidGroup())                    // Only raid groups may have assistant
         return;
 
     /** error handling **/
@@ -557,7 +564,8 @@ void WorldSession::HandleGroupAssistantLeaderOpcode( WorldPacket & recv_data )
     /********************/
 
     // everything is fine, do it
-    group->SetAssistant(guid, (flag==0?false:true));
+    group->SetGroupUniqueFlag(guid, GROUP_ASSIGN_ASSISTANT, apply);
+
 }
 
 void WorldSession::HandlePartyAssignmentOpcode( WorldPacket & recv_data )
@@ -568,34 +576,19 @@ void WorldSession::HandlePartyAssignmentOpcode( WorldPacket & recv_data )
     recv_data >> role >> apply;                             // role 0 = Main Tank, 1 = Main Assistant
     recv_data >> guid;
 
-    DEBUG_LOG("MSG_PARTY_ASSIGNMENT");
+    DEBUG_LOG("MSG_PARTY_ASSIGNMENT: guid %u, role %u, apply %u",guid.GetCounter(),role,apply);
 
     Group *group = GetPlayer()->GetGroup();
-    if (!group)
+
+    if (!group || !group->isRaidGroup())                    // Only raid groups may have mainassistant/maintank
         return;
 
     /** error handling **/
-    if (!group->IsLeader(GetPlayer()->GetObjectGuid()))
+    if (!group->IsLeader(GetPlayer()->GetObjectGuid()) && !group->IsAssistant(GetPlayer()->GetObjectGuid()))
         return;
     /********************/
 
-    // everything is fine, do it
-    if (apply)
-    {
-        switch(role)
-        {
-            case 0: group->SetMainTank(guid); break;
-            case 1: group->SetMainAssistant(guid); break;
-            default: break;
-        }
-    }
-    else
-    {
-        if (group->GetMainTankGuid() == guid)
-            group->SetMainTank(ObjectGuid());
-        if (group->GetMainAssistantGuid() == guid)
-            group->SetMainAssistant(ObjectGuid());
-    }
+    group->SetGroupUniqueFlag(guid, GroupFlagsAssignment(role), apply);
 }
 
 void WorldSession::HandleRaidReadyCheckOpcode( WorldPacket & recv_data )
@@ -797,6 +790,9 @@ void WorldSession::BuildPartyMemberStatsChangedPacket(Player *player, WorldPacke
         else
             *data << uint64(0);
     }
+
+    if (mask & GROUP_UPDATE_FLAG_VEHICLE_SEAT)
+        *data << uint32(player->m_movementInfo.GetTransportDBCSeat());
 }
 
 /*this procedure handles clients CMSG_REQUEST_PARTY_MEMBER_STATS request*/
@@ -828,9 +824,11 @@ void WorldSession::HandleRequestPartyMemberStatsOpcode( WorldPacket &recv_data )
     if(pet)
         mask1 = 0x7FFFFFFF;                                 // for hunters and other classes with pets
 
+    uint16 online_status = GetPlayer()->IsReferAFriendLinked(player) ?  (MEMBER_STATUS_ONLINE | MEMBER_STATUS_RAF) : MEMBER_STATUS_ONLINE;
+
     Powers powerType = player->getPowerType();
     data << uint32(mask1);                                  // group update mask
-    data << uint16(MEMBER_STATUS_ONLINE);                   // member's online status
+    data << uint16(online_status);                          // member's online status
     data << uint32(player->GetHealth());                    // GROUP_UPDATE_FLAG_CUR_HP
     data << uint32(player->GetMaxHealth());                 // GROUP_UPDATE_FLAG_MAX_HP
     data << uint8(powerType);                               // GROUP_UPDATE_FLAG_POWER_TYPE
