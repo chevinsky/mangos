@@ -4,3 +4,6 @@
 [submodule "scriptdev2"]
 	path = scriptdev2
 	url = git://github.com/przemratajczak/scriptdev2.git
+[submodule "src/bindings/ScriptDev2"]
+	path = src/bindings/ScriptDev2
+	url = git@github.com:przemratajczak/scriptdev2.git
