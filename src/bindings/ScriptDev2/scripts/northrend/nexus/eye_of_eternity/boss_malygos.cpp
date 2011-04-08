@@ -1383,10 +1383,12 @@ struct MANGOS_DLL_DECL npc_scion_of_eternityAI : public ScriptedAI
 {
     npc_scion_of_eternityAI(Creature* pCreature) : ScriptedAI(pCreature)
     {
+        m_pInstance = (Instance_eye_of_eternity*)pCreature->GetInstanceData();
         m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
         Reset();
     }
 
+    Instance_eye_of_eternity *m_pInstance;
     bool m_bIsRegularMode;
     uint32 m_uiArcaneBarrageTimer;
     uint32 m_uiMoveTimer;
@@ -1407,6 +1409,17 @@ struct MANGOS_DLL_DECL npc_scion_of_eternityAI : public ScriptedAI
     void Aggro(Unit *pWho)
     {
         SetCombatMovement(false);
+    }
+
+    void JustDied(Unit *pKiller)
+    {
+        if (pKiller && pKiller->GetTypeId() == TYPEID_PLAYER && pKiller->GetVehicle())
+        {
+            if (m_pInstance)
+                m_pInstance->m_lDenyingScionGUIDList.push_back(pKiller->GetGUID());
+
+            ((Player*)pKiller)->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS,1);
+        }
     }
 
     void UpdateAI(const uint32 uiDiff)

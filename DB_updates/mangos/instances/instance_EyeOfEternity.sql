@@ -1,5 +1,5 @@
 -- Instance Eye of Eternity
--- Instance last changes: a641
+-- Instance last changes: a658
 
 -- Set instance script
 UPDATE instance_template SET ScriptName = 'instance_eye_of_eternity' WHERE map = 616;
@@ -111,3 +111,9 @@ INSERT INTO gameobject_loot_template (entry, item, ChanceOrQuestChance, groupid,
 (26097, 44651, -100, 0, 1, 1), -- Quest item, Heroic Judgement at the Eye of Eternity
 (26097, 43952, 1, 0, 1, 1); -- Reins of the Azure Drake
 -- End of 25m Malygos loot
+
+-- achievements
+DELETE FROM `achievement_criteria_requirement` WHERE `criteria_id` BETWEEN 7573 AND 7574;
+INSERT INTO `achievement_criteria_requirement` VALUES
+(7573, 18, 0, 0),
+(7574, 18, 0, 0);
