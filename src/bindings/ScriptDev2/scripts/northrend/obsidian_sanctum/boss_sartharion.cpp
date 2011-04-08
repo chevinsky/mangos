@@ -16,8 +16,8 @@
 
 /* ScriptData
 SDName: Boss Sartharion
-SD%Complete: 90%
-SDComment: Missing achievement support in the core. Used some workarounds.
+SD%Complete: 95%
+SDComment: Used some workarounds.
 SDCategory: Obsidian Sanctum
 EndScriptData */
 
@@ -293,8 +293,7 @@ struct MANGOS_DLL_DECL boss_sartharionAI : public ScriptedAI
                     pVesp->AI()->EnterEvadeMode();
             }
 
-            // Achievement development
-            //m_pInstance->m_lHitByVolcanoGUIDList.clear();
+            m_pInstance->m_lHitByVolcanoGUIDList.clear();
         }
 
         m_bTenebronHelpedInFight = false;
@@ -1740,13 +1739,12 @@ struct MANGOS_DLL_DECL mob_fire_cycloneAI : public ScriptedAI
     void AttackStart(Unit* pWho){}
     void MoveInLineOfSight(Unit* pWho){}
 
-    // Achievement development
-    /*void SpellHitTarget(Unit *pVictim, const SpellEntry *spellInfo)
+    void SpellHitTarget(Unit *pVictim, const SpellEntry *spellInfo)
     {
         if (spellInfo->Id == SPELL_LAVA_STRIKE_DMG)
             if (m_pInstance && pVictim)
                 m_pInstance->m_lHitByVolcanoGUIDList.push_back(pVictim->GetGUID());
-    }*/
+    }
 
     void JustSummoned(Creature* pSummoned)
     {

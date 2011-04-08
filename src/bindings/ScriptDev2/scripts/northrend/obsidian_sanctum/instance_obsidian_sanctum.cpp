@@ -86,9 +86,6 @@ void instance_obsidian_sanctum::OnCreatureCreate(Creature* pCreature)
 
 void instance_obsidian_sanctum::SetData(uint32 uiType, uint32 uiData)
 {
-    if (uiType < 1 || uiType > 7)
-        return;
-
     m_auiEncounter[uiType - 1] = uiData;
 }
 
@@ -131,13 +128,34 @@ bool instance_obsidian_sanctum::CheckConditionCriteriaMeet(Player const* pSource
     return (GetData(uiInstanceConditionId) == DONE);
 }
 
-/*bool instance_obsidian_sanctum::CheckAchievementCriteriaMeet(uint32 uiCriteriaId, Player const* pSource, Unit const* pTarget, uint32 uiMiscValue1 = 0)
+bool instance_obsidian_sanctum::CheckAchievementCriteriaMeet(uint32 uiCriteriaId, Player const* pSource, Unit const* pTarget, uint32 uiMiscValue1)
 {
-    if (uiCriteriaId > 2048)
-        return (GetData(uiMiscValue1) == DONE);
-
     switch (uiCriteriaId)
     {
+        case ACHIEV_CRIT_ASSIST_10:
+            if (instance->IsRegularDifficulty())
+                return GetData(TYPE_SARTH_HARD_ONE) == DONE;
+            break;
+        case ACHIEV_CRIT_ASSIST_25:
+            if (!instance->IsRegularDifficulty())
+                return GetData(TYPE_SARTH_HARD_ONE) == DONE;
+            break;
+        case ACHIEV_CRIT_DUO_10:
+            if (instance->IsRegularDifficulty())
+                return GetData(TYPE_SARTH_HARD_TWO) == DONE;
+            break;
+        case ACHIEV_CRIT_DUO_25:
+            if (!instance->IsRegularDifficulty())
+                return GetData(TYPE_SARTH_HARD_TWO) == DONE;
+            break;
+        case ACHIEV_CRIT_ZONE_10:
+            if (instance->IsRegularDifficulty())
+                return GetData(TYPE_SARTH_HARD_THREE) == DONE;
+            break;
+        case ACHIEV_CRIT_ZONE_25:
+            if (!instance->IsRegularDifficulty())
+                return GetData(TYPE_SARTH_HARD_THREE) == DONE;
+            break;
         case ACHIEV_CRIT_VOLCANO_10:
             if (instance->IsRegularDifficulty())
             {
@@ -161,7 +179,7 @@ bool instance_obsidian_sanctum::CheckConditionCriteriaMeet(Player const* pSource
     }
 
     return false;
-}*/
+}
 
 InstanceData* GetInstanceData_instance_obsidian_sanctum(Map* pMap)
 {
