@@ -54,6 +54,25 @@ enum
     TYPE_BLAUMEUX               = 20,
     TYPE_RIVENDARE              = 21,
 
+    // achievements
+    TYPE_ACHI_HUNDRED_CLUB      = 22,
+    TYPE_ACHI_CANT_GET_ENOUGH   = 23,
+    TYPE_ACHI_SPORE_LOSER       = 24,
+    TYPE_ACHI_MOMMA_SAID        = 25,
+    TYPE_ACHI_SAFETY_DANCE      = 26,
+
+    // achievement criterias
+    ACHIEV_CRIT_HUNDRED_CLUB_10    = 7567,
+    ACHIEV_CRIT_HUNDRED_CLUB_25    = 7568,
+    ACHIEV_CRIT_SPORE_LOSER_10     = 7612,
+    ACHIEV_CRIT_SPORE_LOSER_25     = 7613,
+    ACHIEV_CRIT_CANT_GET_ENOUGH_10 = 7614,
+    ACHIEV_CRIT_CANT_GET_ENOUGH_25 = 7615,
+    ACHIEV_CRIT_MOMMA_SAID_10      = 7265,
+    ACHIEV_CRIT_MOMMA_SAID_25      = 7549,
+    ACHIEV_CRIT_SAFETY_DANCE_10    = 7264,
+    ACHIEV_CRIT_SAFETY_DANCE_25    = 7548
+
     NPC_ANUB_REKHAN             = 15956,
     NPC_FAERLINA                = 15953,
     NPC_NAXXRAMAS_FOLLOWER      = 16505,
@@ -176,6 +195,10 @@ class MANGOS_DLL_DECL instance_naxxramas : public ScriptedInstance
         uint32 GetData(uint32 uiType);
         uint64 GetData64(uint32 uiData);
 
+        bool CheckAchievementCriteriaMeet(uint32 uiCriteriaId, Player const* pSource, Unit const* pTarget, uint32 uiMiscValue1 /* = 0*/);
+
+        void OnPlayerDeath(Player *);
+
         void SwitchDoor(uint32 uiData, uint64 doorGUID);
 
         const char* Save() { return strInstData.c_str(); }
@@ -276,6 +299,13 @@ class MANGOS_DLL_DECL instance_naxxramas : public ScriptedInstance
         float m_fChamberCenterX;
         float m_fChamberCenterY;
         float m_fChamberCenterZ;
+
+        // achievement criterias check
+        bool m_bHundredClub;
+        bool m_bCantGetEnough;
+        bool m_bSporeLoser;
+        bool m_bMommaSaid;
+        bool m_bSafetyDance;
 };
 
 #endif

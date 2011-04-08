@@ -1,5 +1,5 @@
 -- Instance Naxxramas
--- Instance last changes: a196
+-- Instance last changes: a657
 ###################   boss_anubrekhan   ########################################################
 -- crypt guard (summon) based on ACID 3.0.4
 DELETE FROM creature_ai_scripts WHERE creature_id = 16573;
@@ -305,3 +305,17 @@ INSERT INTO `creature_ai_scripts` VALUES
 
 -- Mr Bigglesworth
 UPDATE `creature_template` SET `ScriptName` = "npc_mr_bigglesworth" WHERE `entry` = 16998;
+
+-- achievements
+DELETE FROM `achievement_criteria_requirement` WHERE `criteria_id` IN (7567, 7568, 7612, 7613, 7614, 7615, 7265, 7549, 7264, 7548, 7126, 7127);
+INSERT INTO `achievement_criteria_requirement` VALUES
+(7567, 18, 0, 0),
+(7568, 18, 0, 0),
+(7612, 18, 0, 0),
+(7613, 18, 0, 0),
+(7614, 18, 0, 0),
+(7615, 18, 0, 0),
+(7265, 18, 0, 0),
+(7549, 18, 0, 0),
+(7264, 18, 0, 0),
+(7548, 18, 0, 0);

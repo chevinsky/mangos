@@ -130,6 +130,7 @@ struct MANGOS_DLL_DECL boss_kelthuzadAI : public ScriptedAI
     uint32 m_uiAbominationCount;
     uint32 m_uiSummonIntroTimer;
     uint32 m_uiIntroPackCount;
+    uint32 m_uiCantGetEnoughCounter; // achievement counter
 
     std::set<uint64> m_lIntroMobsSet;
     std::set<uint64> m_lAddsSet;
@@ -146,6 +147,7 @@ struct MANGOS_DLL_DECL boss_kelthuzadAI : public ScriptedAI
         m_uiGuardiansCount      = 0;
         m_uiSummonIntroTimer    = 0;
         m_uiIntroPackCount      = 0;
+        m_uiCantGetEnoughCounter = 0;
 
         m_uiPhase1Timer         = 228000;                   //Phase 1 lasts "3 minutes and 48 seconds"
         m_uiSoldierTimer        = 5000;
@@ -176,7 +178,12 @@ struct MANGOS_DLL_DECL boss_kelthuzadAI : public ScriptedAI
         DespawnAdds();
 
         if (m_pInstance)
+        {
             m_pInstance->SetData(TYPE_KELTHUZAD, DONE);
+
+            if (m_uiCantGetEnoughCounter >= 18)
+                m_pInstance->SetData(TYPE_ACHI_CANT_GET_ENOUGH, DONE);
+        }
     }
 
     void JustReachedHome()
@@ -221,7 +228,7 @@ struct MANGOS_DLL_DECL boss_kelthuzadAI : public ScriptedAI
                     if (pCreature->isAlive())
                     {
                         pCreature->AI()->EnterEvadeMode();
-                        pCreature->ForcedDespawn(15000);
+                        pCreature->ForcedDespawn(2000);
                     }
                 }
             }
@@ -343,9 +350,11 @@ struct MANGOS_DLL_DECL boss_kelthuzadAI : public ScriptedAI
     {
         switch(pSummoned->GetEntry())
         {
+            case NPC_UNSTOPPABLE_ABOM:
+                if (m_uiPhase == PHASE_INTRO)
+                    m_uiCantGetEnoughCounter++;
             case NPC_GUARDIAN:
             case NPC_SOLDIER_FROZEN:
-            case NPC_UNSTOPPABLE_ABOM:
             case NPC_SOUL_WEAVER:
                 m_lAddsSet.erase(pSummoned->GetGUID());
                 break;
