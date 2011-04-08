@@ -1,5 +1,5 @@
 -- Instance Ulduar
--- Instance last changes: a660
+-- Instance last changes: a661
 
 -- teleporter
 UPDATE gameobject_template SET ScriptName = "go_ulduar_teleporter" WHERE entry = 194569;
@@ -144,7 +144,7 @@ INSERT INTO `reference_loot_template` VALUES
 
 -- ****** Razorscale ******
 UPDATE creature_template SET `ScriptName`="boss_razorscale" WHERE entry=33186;
-UPDATE creature_template SET mechanic_immune_mask=617299803, `lootid` = `entry`, `InhabitType` = 7 WHERE entry IN (33186, 33724);
+UPDATE creature_template SET faction_A = 2150, faction_H = 2150, mechanic_immune_mask=617299803, `lootid` = `entry`, `InhabitType` = 7 WHERE entry IN (33186, 33724);
 -- original x=587.547, y= -174.927, z = 391.517; make the boss fly before encounter starts
 update creature set position_x = 590.346741, position_y = -226.947647, position_z = 460.897583 where id = 33186;
 UPDATE gameobject_template SET flags= 6553648, ScriptName="go_broken_harpoon" WHERE entry = 194565;
