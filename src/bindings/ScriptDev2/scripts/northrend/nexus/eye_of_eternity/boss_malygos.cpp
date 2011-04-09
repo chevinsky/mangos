@@ -1172,7 +1172,7 @@ struct MANGOS_DLL_DECL boss_malygosAI : public ScriptedAI
                 {
                     if (Unit* pRandomTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
                     {
-                        Unit *pVictim;
+                        Unit *pVictim = NULL;
 
                         if (pRandomTarget->GetEntry() == NPC_WYRMREST_SKYTALON)
                         {
