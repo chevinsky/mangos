@@ -85,7 +85,9 @@ enum
     SPELL_CHAIN_LIGHTNING_H             = 63479,
     SPELL_OVERLOAD                      = 61869,
     SPELL_LIGHTNING_WHIRL               = 61915,
+    SPELL_LIGHTNING_WHIRL_TRIG          = 61916,
     SPELL_LIGHTNING_WHIRL_H             = 63483,
+    SPELL_LIGHTNING_WHIRL_H_TRIG        = 63482,
     SPELL_STORMSHIELD                   = 64187,
     SPELL_LIGHTNING_TENDRILS            = 61887,
     SPELL_LIGHTNING_TENDRILS_H          = 63486,
@@ -302,6 +304,13 @@ struct MANGOS_DLL_DECL boss_brundirAI : public ScriptedAI
         m_bIsMolgeimDead          = false;
         if (m_creature->HasAura(SPELL_SUPERCHARGE))
             m_creature->RemoveAurasDueToSpell(SPELL_SUPERCHARGE);
+
+        // achievement
+        if (m_pInstance)
+        {
+            m_pInstance->SetData(TYPE_ACHI_CANT_DO_THAT, DONE);
+            m_pInstance->SetData(TYPE_ACHI_CHOOSE_BRUN, NOT_STARTED);
+        }
     }
 
     void JustDied(Unit* pKiller)
@@ -324,6 +333,7 @@ struct MANGOS_DLL_DECL boss_brundirAI : public ScriptedAI
                         if (!p2Temp->isAlive())
                         {
                             m_pInstance->SetData(TYPE_ASSEMBLY, DONE);
+                            m_pInstance->SetData(TYPE_ACHI_CHOOSE_BRUN, DONE);
                             // only the current one has loot, because loot modes are implemented in sql
                             m_creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
                         }
@@ -405,6 +415,16 @@ struct MANGOS_DLL_DECL boss_brundirAI : public ScriptedAI
         else
         {
             m_bHasSupercharge1 = true;
+        }
+    }
+
+    void SpellHitTarget(Unit *pVictim, SpellEntry const *spellInfo)
+    {
+        if (spellInfo->Id == (m_bIsRegularMode ? SPELL_CHAIN_LIGHTNING : SPELL_CHAIN_LIGHTNING_H) ||
+            spellInfo->Id == (m_bIsRegularMode ? SPELL_LIGHTNING_WHIRL_TRIG : SPELL_LIGHTNING_WHIRL_H_TRIG))
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_ACHI_CANT_DO_THAT, FAIL);
         }
     }
 
@@ -575,6 +595,9 @@ struct MANGOS_DLL_DECL boss_molgeimAI : public ScriptedAI
         m_bHasSupercharge2   = false;
         if (m_creature->HasAura(SPELL_SUPERCHARGE))
             m_creature->RemoveAurasDueToSpell(SPELL_SUPERCHARGE);
+
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_ACHI_CHOOSE_MOLG, NOT_STARTED);
     }
 
     void JustDied(Unit* pKiller)
@@ -596,6 +619,7 @@ struct MANGOS_DLL_DECL boss_molgeimAI : public ScriptedAI
                         if (!p2Temp->isAlive())
                         {
                             m_pInstance->SetData(TYPE_ASSEMBLY, DONE);
+                            m_pInstance->SetData(TYPE_ACHI_CHOOSE_MOLG, DONE);
                             // only the current one has loot, because loot modes are implemented in sql
                             m_creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
                         }
@@ -810,6 +834,9 @@ struct MANGOS_DLL_DECL boss_steelbreakerAI : public ScriptedAI
             m_creature->RemoveAurasDueToSpell(SPELL_HIGH_VOLTAGE);
         if (m_creature->HasAura(SPELL_HIGH_VOLTAGE_H))
             m_creature->RemoveAurasDueToSpell(SPELL_HIGH_VOLTAGE_H);
+
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_ACHI_CHOOSE_STEEL, NOT_STARTED);
     }
 
     void KilledUnit(Unit* pVictim)
@@ -840,6 +867,7 @@ struct MANGOS_DLL_DECL boss_steelbreakerAI : public ScriptedAI
                         {
                             m_pInstance->SetData(TYPE_ASSEMBLY, DONE);
                             m_pInstance->SetData(TYPE_ASSEMBLY_HARD, DONE);
+                            m_pInstance->SetData(TYPE_ACHI_CHOOSE_STEEL, DONE);
                             m_creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
                         }
                     }

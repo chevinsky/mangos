@@ -1,5 +1,5 @@
 -- Instance Obsidian Sanctum
--- Instance last changes: a262
+-- Instance last changes: a659
 
 -- ScriptNames
 UPDATE `creature_template` SET `ScriptName` = "boss_sartharion" WHERE `entry` = 28860;
@@ -264,15 +264,14 @@ INSERT INTO `item_loot_template` VALUES
 (43347, 40752, 100, 0, 5, 5, 0, 0, 0),
 (43346, 40753, 100, 0, 5, 5, 0, 0, 0);
 
--- Achievement development
 -- Achievements
--- DELETE FROM `achievement_criteria_requirement` WHERE `criteria_id` BETWEEN 2047 AND 2054;
--- INSERT INTO `achievement_criteria_requirement` VALUES
--- (2047, 18, 0, 0),
--- (2048, 18, 0, 0),
--- (2049, 18, 2, 0),
--- (2052, 18, 2, 0),
--- (2050, 18, 3, 0),
--- (2053, 18, 3, 0),
--- (2051, 18, 4, 0),
--- (2054, 18, 4, 0);
+DELETE FROM `achievement_criteria_requirement` WHERE `criteria_id` BETWEEN 7326 AND 7333;
+INSERT INTO `achievement_criteria_requirement` VALUES
+(7326, 18, 0, 0),
+(7327, 18, 0, 0),
+(7328, 18, 0, 0),
+(7331, 18, 0, 0),
+(7329, 18, 0, 0),
+(7332, 18, 0, 0),
+(7330, 18, 0, 0),
+(7333, 18, 0, 0);

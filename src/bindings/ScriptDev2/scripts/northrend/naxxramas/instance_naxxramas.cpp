@@ -512,6 +512,22 @@ void instance_naxxramas::SetData(uint32 uiType, uint32 uiData)
             if (uiData == IN_PROGRESS)
                 SetData(TYPE_FOUR_HORSEMEN, IN_PROGRESS);
             break;
+        // achievement types
+        case TYPE_ACHI_HUNDRED_CLUB:
+            m_bHundredClub = (uiData == DONE);
+            break;
+        case TYPE_ACHI_CANT_GET_ENOUGH:
+            m_bCantGetEnough = (uiData == DONE);
+            break;
+        case TYPE_ACHI_SPORE_LOSER:
+            m_bSporeLoser = (uiData == DONE);
+            break;
+        case TYPE_ACHI_MOMMA_SAID:
+            m_bMommaSaid = (uiData == DONE);
+            break;
+        case TYPE_ACHI_SAFETY_DANCE:
+            m_bSafetyDance = (uiData == DONE);
+            break;
     }
 
     if (m_auiEncounter[15] == DONE && m_auiEncounter[16] == DONE && m_auiEncounter[17] == DONE && m_auiEncounter[18] && m_auiEncounter[8] != DONE )
@@ -594,6 +610,17 @@ uint32 instance_naxxramas::GetData(uint32 uiType)
             return m_auiEncounter[13];
         case TYPE_KELTHUZAD:
             return m_auiEncounter[14];
+        // achievement types
+        case TYPE_ACHI_HUNDRED_CLUB:
+            return m_bHundredClub;
+        case TYPE_ACHI_CANT_GET_ENOUGH:
+            return m_bCantGetEnough;
+        case TYPE_ACHI_SPORE_LOSER:
+            return m_bSporeLoser;
+        case TYPE_ACHI_MOMMA_SAID:
+            return m_bMommaSaid;
+        case TYPE_ACHI_SAFETY_DANCE:
+            return m_bSafetyDance;
     }
     return 0;
 }
@@ -778,6 +805,41 @@ void instance_naxxramas::DoTaunt()
             }
         }
     }
+}
+
+void instance_naxxramas::OnPlayerDeath(Player *pPlayer)
+{
+    if (GetData(TYPE_HEIGAN) == IN_PROGRESS)
+        SetData(TYPE_ACHI_SAFETY_DANCE, FAIL);
+}
+
+bool instance_naxxramas::CheckAchievementCriteriaMeet(uint32 uiCriteriaId, Player const* pSource, Unit const* pTarget, uint32 uiMiscValue1 /* = 0*/)
+{
+    switch (uiCriteriaId)
+    {
+        case ACHIEV_CRIT_HUNDRED_CLUB_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_HUNDRED_CLUB);
+        case ACHIEV_CRIT_HUNDRED_CLUB_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_HUNDRED_CLUB);
+        case ACHIEV_CRIT_CANT_GET_ENOUGH_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CANT_GET_ENOUGH);
+        case ACHIEV_CRIT_CANT_GET_ENOUGH_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_CANT_GET_ENOUGH);
+        case ACHIEV_CRIT_SPORE_LOSER_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_SPORE_LOSER);
+        case ACHIEV_CRIT_SPORE_LOSER_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_SPORE_LOSER);
+        case ACHIEV_CRIT_MOMMA_SAID_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_MOMMA_SAID);
+        case ACHIEV_CRIT_MOMMA_SAID_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_MOMMA_SAID);
+        case ACHIEV_CRIT_SAFETY_DANCE_10:
+            return instance->IsRegularDifficulty() && GetData(TYPE_ACHI_SAFETY_DANCE);
+        case ACHIEV_CRIT_SAFETY_DANCE_25:
+            return !instance->IsRegularDifficulty() && GetData(TYPE_ACHI_SAFETY_DANCE);
+    }
+
+    return false;
 }
 
 InstanceData* GetInstanceData_instance_naxxramas(Map* pMap)

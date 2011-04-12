@@ -16,8 +16,8 @@
 
 /* ScriptData
 SDName: boss_xt002
-SD%Complete:
-SDComment: need core support for light and gravity bomb. correct number of adds in 25man missing
+SD%Complete: 80%
+SDComment: adds probably have wrong movement speed and spawn in wrong times / in a wrong way
 SDCategory: Ulduar
 EndScriptData */
 
@@ -329,6 +329,7 @@ struct MANGOS_DLL_DECL mob_scrap_botAI : public ScriptedAI
                     uint32 max_health = pXT->GetMaxHealth();
                     pXT->SetHealth(new_health > max_health ? max_health : new_health);
                     DoScriptText(EMOTE_REPAIR, pXT);
+                    m_pInstance->SetData(TYPE_ACHI_NERF_ENGI, FAIL);
                     m_creature->DealDamage(m_creature, m_creature->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
                 }
             }
@@ -486,6 +487,8 @@ struct MANGOS_DLL_DECL boss_xt_002AI : public ScriptedAI
             return;
 
         m_pInstance->SetData(TYPE_XT002_HARD, NOT_STARTED);
+        m_pInstance->SetData(TYPE_ACHI_NERF_ENGI, DONE);
+        m_pInstance->SetData(TYPE_ACHI_NERF_GRAVITY, DONE);
 
         DespawnAdds();
     }
@@ -554,6 +557,17 @@ struct MANGOS_DLL_DECL boss_xt_002AI : public ScriptedAI
             m_creature->SetHealth(m_creature->GetMaxHealth()+ (m_creature->GetMaxHealth() * (m_bIsRegularMode ? 0.5f : 0.6f)));
             m_bIsHardMode = true;
             m_bPhase2 = false;
+        }
+    }
+
+    void SpellHitTarget(Unit *pVictim, SpellEntry const *spellInfo)
+    {
+        if (spellInfo->Id == (m_bIsRegularMode ? SPELL_GRAVITY_BOMB : SPELL_GRAVITY_BOMB_H))
+        {
+            // need check when dot aura wears off
+            //if (!pVictim->isAlive())
+                if (m_pInstance)
+                    m_pInstance->SetData(TYPE_ACHI_NERF_GRAVITY, FAIL);
         }
     }
 

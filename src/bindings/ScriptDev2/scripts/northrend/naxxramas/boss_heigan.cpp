@@ -107,7 +107,10 @@ struct MANGOS_DLL_DECL boss_heiganAI : public ScriptedAI
         }
 
         if (m_pInstance)
+        {
             m_pInstance->SetData(TYPE_HEIGAN, IN_PROGRESS);
+            m_pInstance->SetData(TYPE_ACHI_SAFETY_DANCE, DONE);
+        }
     }
 
     void KilledUnit(Unit* pVictim)

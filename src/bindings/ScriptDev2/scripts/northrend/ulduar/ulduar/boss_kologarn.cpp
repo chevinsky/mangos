@@ -16,8 +16,8 @@
 
 /* ScriptData
 SDName: boss_kologarn
-SD%Complete: 0%
-SDComment:
+SD%Complete: 90%
+SDComment: right arm leaves Kologarn vehicle when a player enters arms vehicle :/
 SDCategory: Ulduar
 EndScriptData */
 
@@ -285,7 +285,7 @@ struct MANGOS_DLL_DECL boss_right_armAI : public ScriptedAI
                 {
                     DoCast(pTarget, m_bIsRegularMode ? SPELL_STONE_GRIP_GRAB : SPELL_STONE_GRIP_GRAB_H, true);
                     m_uiGripTargetGUID[i] = pTarget->GetGUID();
-                    pTarget->EnterVehicle(m_creature->GetVehicleKit());
+                    //pTarget->EnterVehicle(m_creature->GetVehicleKit());
                 }
             }
             m_uiFreeDamage = 0;
@@ -321,6 +321,7 @@ struct MANGOS_DLL_DECL boss_kologarnAI : public ScriptedAI
     uint32 m_uiRespawnRightTimer;
     uint32 m_uiRespawnLeftTimer;
     uint32 m_uiEnrageTimer;
+    uint32 m_uiRubbleCounter;
     bool m_bIsRightDead;
     bool m_bIsLeftDead;
 
@@ -354,6 +355,14 @@ struct MANGOS_DLL_DECL boss_kologarnAI : public ScriptedAI
             }
             pVehKit->InstallAllAccessories(m_creature->GetEntry());
         }
+
+        if (m_pInstance)
+        {
+            m_pInstance->SetData(TYPE_ACHI_OPEN_ARMS, DONE);
+            m_pInstance->SetData(TYPE_ACHI_IF_LOOKS, DONE);
+            m_pInstance->SetData(TYPE_ACHI_RUBBLE_ROLL, FAIL);
+        }
+        m_uiRubbleCounter = 0;
     }
 
     void MoveInLineOfSight(Unit *pWho)
@@ -525,6 +534,10 @@ struct MANGOS_DLL_DECL boss_kologarnAI : public ScriptedAI
                             }
                         }
                     }
+
+                    if (m_pInstance)
+                        m_pInstance->SetData(TYPE_ACHI_OPEN_ARMS, FAIL);
+
                     m_bIsLeftDead = true;
                     m_uiRespawnLeftTimer = 47000;
                 }
@@ -543,8 +556,19 @@ struct MANGOS_DLL_DECL boss_kologarnAI : public ScriptedAI
                                 pRubble->AI()->AttackStart(pTarget);
                                 pRubble->SetInCombatWithZone();
                             }
+
+                            m_uiRubbleCounter++;
+                            if (m_uiRubbleCounter >= 25)
+                            {
+                                if (m_pInstance)
+                                    m_pInstance->SetData(TYPE_ACHI_RUBBLE_ROLL, DONE);
+                            }
                         }
                     }
+
+                    if (m_pInstance)
+                        m_pInstance->SetData(TYPE_ACHI_OPEN_ARMS, FAIL);
+
                     m_bIsRightDead = true;
                     m_uiRespawnRightTimer = 47000;
                 }
@@ -573,12 +597,20 @@ CreatureAI* GetAI_boss_kologarn(Creature* pCreature)
     return new boss_kologarnAI(pCreature);
 }
 
-// Focused Eyebeam trigger mobs - just make them not attack in melee
+// Focused Eyebeam trigger mobs - just make them not attack in melee and handle achievement event
 struct MANGOS_DLL_DECL mob_eyebeam_triggerAI : public ScriptedAI
 {
     mob_eyebeam_triggerAI(Creature* pCreature) : ScriptedAI(pCreature){}
     void Reset(){}
     void UpdateAI(const uint32 uiDiff){}
+    void SpellHitTarget(Unit *pVictim, SpellEntry const *spellInfo)
+    {
+        if (spellInfo->Id == SPELL_EYEBEAM_PERIODIC || spellInfo->Id == SPELL_EYEBEAM_PERIODIC_H)
+        {
+            if (InstanceData *pInstance = m_creature->GetInstanceData())
+                pInstance->SetData(TYPE_ACHI_IF_LOOKS, FAIL);
+        }
+    }
 };
 CreatureAI* GetAI_mob_eyebeam_trigger(Creature* pCreature)
 {

@@ -68,6 +68,9 @@ struct MANGOS_DLL_DECL boss_loathebAI : public ScriptedAI
         m_uiSummonTimer = urand(10000, 15000);              // first seen in vid after approx 12s
         m_uiBerserkTimer = MINUTE*12*IN_MILLISECONDS;       // only in heroic, after 12min
         m_uiNecroticAuraCount = 0;
+
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_ACHI_SPORE_LOSER, DONE);
     }
 
     void Aggro(Unit* pWho)
@@ -95,6 +98,12 @@ struct MANGOS_DLL_DECL boss_loathebAI : public ScriptedAI
 
         if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
             pSummoned->AddThreat(pTarget);
+    }
+
+    void SummonedCreatureJustDied(Creature *pCreature)
+    {
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_ACHI_SPORE_LOSER, FAIL);
     }
 
     void UpdateAI(const uint32 uiDiff)

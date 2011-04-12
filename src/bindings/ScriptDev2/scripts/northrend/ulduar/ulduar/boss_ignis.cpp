@@ -95,6 +95,7 @@ struct MANGOS_DLL_DECL boss_ignisAI : public ScriptedAI
     uint32 m_uiSlagPotExitTimer;
     uint32 m_uiFlameJetsTimer;
     uint32 m_uiActivateConstructTimer;
+    uint32 m_uiShatteredTimer;
 
     void Reset()
     {
@@ -102,14 +103,21 @@ struct MANGOS_DLL_DECL boss_ignisAI : public ScriptedAI
         m_uiSlagPotTimer            = 19000;
         m_uiFlameJetsTimer          = 21000;
         m_uiActivateConstructTimer  = 25000;
+        m_uiShatteredTimer          = 0;
 
         m_bIsSlagPot                = false;
 
         if (m_pInstance)
+        {
             for (std::list<uint64>::iterator i = m_pInstance->m_lIronConstructsGUIDs.begin(); i != m_pInstance->m_lIronConstructsGUIDs.end(); i++)
+            {
                 if (Creature *pTmp = m_pInstance->instance->GetCreature(*i))
                     if (!pTmp->isAlive())
                         pTmp->Respawn();
+            }
+
+            m_pInstance->SetData(TYPE_ACHI_SHATTERED, NOT_STARTED);
+        }
     }
     
     void Aggro(Unit* pWho)
@@ -161,6 +169,18 @@ struct MANGOS_DLL_DECL boss_ignisAI : public ScriptedAI
             pCreature->ForcedDespawn();
     }
 
+    void SummonedCreatureJustDied(Creature *pCreature)
+    {
+        if (m_uiShatteredTimer < 5000)
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_ACHI_SHATTERED, DONE);
+        }
+
+        // reset achievement timer
+        m_uiShatteredTimer = 0;
+    }
+
     void DamageTaken(Unit *pDoneBy, uint32 &uiDamage)
     {
         if (pDoneBy->HasAura(SPELL_SLAG_POT_AURA) || pDoneBy->HasAura(SPELL_SLAG_POT_AURA_H))
@@ -171,6 +191,9 @@ struct MANGOS_DLL_DECL boss_ignisAI : public ScriptedAI
     {
         if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
             return;
+
+        // achievement timer, ticking all the time
+        m_uiShatteredTimer += uiDiff;
 
         if (m_uiScorchTimer <= uiDiff)
         {
@@ -281,8 +304,8 @@ struct MANGOS_DLL_DECL mob_iron_constructAI : public ScriptedAI
 
         if (m_creature->HasAura(SPELL_BRITTLE, EFFECT_INDEX_0) || m_creature->HasAura(SPELL_BRITTLE_H, EFFECT_INDEX_0))
         {
-            uint32 m_uiShatterDmg = m_bIsRegularMode ? 3000 : 5000;
-            if (uiDamage > m_uiShatterDmg)
+            uint32 uiShatterDmg = m_bIsRegularMode ? 3000 : 5000;
+            if (uiDamage > uiShatterDmg)
             {
                 uiDamage = 0;
                 if (DoCastSpellIfCan(m_creature, SPELL_SHATTER, CAST_TRIGGERED) == CAST_OK)
@@ -292,8 +315,13 @@ struct MANGOS_DLL_DECL mob_iron_constructAI : public ScriptedAI
                     // Strength of the Creator stack decreasing hack
                     if (m_pInstance)
                         if (Creature *pIgnis = m_pInstance->instance->GetCreature(m_pInstance->GetData64(NPC_IGNIS)) )
+                        {
                             if (SpellAuraHolder *pHolder = pIgnis->GetSpellAuraHolder(SPELL_STRENGTH_OF_THE_CREATOR) )
                                 pHolder->SetStackAmount(pHolder->GetStackAmount()-1);
+
+                            if (pIgnis->AI())
+                                pIgnis->AI()->SummonedCreatureJustDied(m_creature);
+                        }
                 }
             }
         }

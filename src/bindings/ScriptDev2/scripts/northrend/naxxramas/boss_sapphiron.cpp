@@ -39,6 +39,7 @@ enum
 
     SPELL_ICEBOLT               = 28522,
     //SPELL_ICEBOLT             = 28526,    // eff 77 implicit 1/0 but with casttime (not used)
+    SPELL_ICE_BLOCK_VISUAL      = 45776,
     SPELL_FROSTBREATH           = 28524,
     SPELL_FROSTBREATH_VISUAL    = 30101,
     SPELL_SAPPHIRONS_WING_BUFFET= 29328,
@@ -84,6 +85,7 @@ struct MANGOS_DLL_DECL boss_sapphironAI : public ScriptedAI
     instance_naxxramas* m_pInstance;
     bool m_bIsRegularMode;
     bool m_bCastingFrostBreath; // hack part
+    bool m_bHundredClub;        // achievement check
     float fHomeX, fHomeY, fHomeZ;
 
     int8 m_iIceboltCount;
@@ -97,6 +99,7 @@ struct MANGOS_DLL_DECL boss_sapphironAI : public ScriptedAI
     uint32 m_uiPhase;
     uint32 m_uiLandTimer;
     uint32 m_uiRespawnTime;
+    uint32 m_uiHundredClubCheckTimer;
     uint64 m_uiWingBuffetGUID;
 
     void Reset()
@@ -114,6 +117,8 @@ struct MANGOS_DLL_DECL boss_sapphironAI : public ScriptedAI
         m_iIceboltCount     = 0;
         m_uiWingBuffetGUID  = 0;
         m_bCastingFrostBreath = false;
+        m_bHundredClub      = true;
+        m_uiHundredClubCheckTimer = 5000;
         m_creature->GetRespawnCoord(fHomeX, fHomeY, fHomeZ);
     }
 
@@ -195,17 +200,25 @@ struct MANGOS_DLL_DECL boss_sapphironAI : public ScriptedAI
 
     void SpellHitTarget(Unit *pVictim, const SpellEntry *spellInfo)
     {
-        if (!pVictim || !spellInfo || spellInfo->Id != SPELL_FROSTBREATH)
+        if (!pVictim || !spellInfo)
             return;
 
-        if (SpellAuraHolder *holder = pVictim->GetSpellAuraHolder(SPELL_ICEBOLT))
+        if (spellInfo->Id == SPELL_FROSTBREATH)
         {
-            for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+            if (SpellAuraHolder *holder = pVictim->GetSpellAuraHolder(SPELL_ICEBOLT))
             {
-                if (Aura *aur = holder->GetAuraByEffectIndex(SpellEffectIndex(i)))
-                    aur->SetAuraDuration(500);
+                for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                {
+                    if (Aura *aur = holder->GetAuraByEffectIndex(SpellEffectIndex(i)))
+                        aur->SetAuraDuration(500);
+                }
+                holder->SendAuraUpdate(false);
             }
-            holder->SendAuraUpdate(false);
+            pVictim->RemoveAurasDueToSpell(SPELL_ICE_BLOCK_VISUAL);
+        }
+        else if (spellInfo->Id == SPELL_ICEBOLT)
+        {
+            pVictim->CastSpell(pVictim, SPELL_ICE_BLOCK_VISUAL, true);
         }
     }
 
@@ -223,7 +236,11 @@ struct MANGOS_DLL_DECL boss_sapphironAI : public ScriptedAI
         DoCastSpellIfCan(m_creature, SPELL_DEACTIVATE_BLIZZARD, CAST_TRIGGERED);
 
         if (m_pInstance)
+        {
             m_pInstance->SetData(TYPE_SAPPHIRON, DONE);
+            if (m_bHundredClub)
+                m_pInstance->SetData(TYPE_ACHI_HUNDRED_CLUB, DONE);
+        }
     }
 
     void JustReachedHome()
@@ -255,6 +272,25 @@ struct MANGOS_DLL_DECL boss_sapphironAI : public ScriptedAI
         }
     }
 
+    // achievement check
+    bool DoHundredClubCheck()
+    {
+        if (!m_pInstance)
+            return false;
+
+        Map::PlayerList const& lPlayers = m_pInstance->instance->GetPlayers();
+        for(Map::PlayerList::const_iterator itr = lPlayers.begin(); itr != lPlayers.end(); ++itr)
+        {
+            if (Player* pPlayer = itr->getSource())
+            {
+                if (pPlayer->GetResistance(SPELL_SCHOOL_FROST) > 100)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
     void UpdateAI(const uint32 uiDiff)
     {
         // respawntime is calculated duration of GO_sapphirons birth special animation
@@ -278,6 +314,15 @@ struct MANGOS_DLL_DECL boss_sapphironAI : public ScriptedAI
 
         if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
             return;
+
+        if (m_bHundredClub)
+        {
+            if (m_uiHundredClubCheckTimer <= uiDiff)
+            {
+                m_bHundredClub = DoHundredClubCheck();
+                m_uiHundredClubCheckTimer = 5000;
+            }else m_uiHundredClubCheckTimer -= uiDiff;
+        }
 
         if (m_uiBeserkTimer < uiDiff)
         {

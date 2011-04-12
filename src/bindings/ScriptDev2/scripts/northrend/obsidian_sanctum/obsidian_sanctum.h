@@ -42,15 +42,15 @@ enum
 
     GO_TWILIGHT_PORTAL          = 193988,
 
-    // achievements
-    ACHIEV_CRIT_VOLCANO_10      = 2047,
-    ACHIEV_CRIT_VOLCANO_25      = 2048,
-    ACHIEV_CRIT_ASSIST_10       = 2049,
-    ACHIEV_CRIT_ASSIST_25       = 2052,
-    ACHIEV_CRIT_DUO_10          = 2050,
-    ACHIEV_CRIT_DUO_25          = 2053,
-    ACHIEV_CRIT_ZONE_10         = 2051,
-    ACHIEV_CRIT_ZONE_25         = 2054,
+    // achievement criterias
+    ACHIEV_CRIT_VOLCANO_10      = 7326,
+    ACHIEV_CRIT_VOLCANO_25      = 7327,
+    ACHIEV_CRIT_ASSIST_10       = 7328,
+    ACHIEV_CRIT_ASSIST_25       = 7331,
+    ACHIEV_CRIT_DUO_10          = 7329,
+    ACHIEV_CRIT_DUO_25          = 7332,
+    ACHIEV_CRIT_ZONE_10         = 7330,
+    ACHIEV_CRIT_ZONE_25         = 7333
 };
 
 class MANGOS_DLL_DECL instance_obsidian_sanctum : public ScriptedInstance
@@ -72,7 +72,7 @@ class MANGOS_DLL_DECL instance_obsidian_sanctum : public ScriptedInstance
     std::list<uint64> m_lEggsGUIDList;
     std::list<uint64> m_lWhelpsGUIDList;
     std::list<uint64> m_lBlazesGUIDList;
-    //std::list<uint64> m_lHitByVolcanoGUIDList;
+    std::list<uint64> m_lHitByVolcanoGUIDList;
     uint64 m_uiAcolyteShadronGUID;
     uint64 m_uiAcolyteVesperonGUID;
 
@@ -81,7 +81,7 @@ class MANGOS_DLL_DECL instance_obsidian_sanctum : public ScriptedInstance
     uint64 GetData64(uint32 uiData);
     bool IsEncounterInProgress() const;
     bool CheckConditionCriteriaMeet(Player const* pSource, uint32 uiMapId, uint32 uiInstanceConditionId);
-    //bool CheckAchievementCriteriaMeet(uint32 uiCriteriaId, Player const* pSource, Unit const* pTarget, uint32 uiMiscValue1 /* = 0*/);
+    bool CheckAchievementCriteriaMeet(uint32 uiCriteriaId, Player const* pSource, Unit const* pTarget, uint32 uiMiscValue1 = 0);
 };
 
 #endif

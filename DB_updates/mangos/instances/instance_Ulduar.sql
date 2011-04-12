@@ -1,5 +1,5 @@
 -- Instance Ulduar
--- Instance last changes: a630
+-- Instance last changes: a661
 
 -- teleporter
 UPDATE gameobject_template SET ScriptName = "go_ulduar_teleporter" WHERE entry = 194569;
@@ -144,7 +144,7 @@ INSERT INTO `reference_loot_template` VALUES
 
 -- ****** Razorscale ******
 UPDATE creature_template SET `ScriptName`="boss_razorscale" WHERE entry=33186;
-UPDATE creature_template SET mechanic_immune_mask=617299803, `lootid` = `entry`, `InhabitType` = 7 WHERE entry IN (33186, 33724);
+UPDATE creature_template SET faction_A = 2150, faction_H = 2150, mechanic_immune_mask=617299803, `lootid` = `entry`, `InhabitType` = 7 WHERE entry IN (33186, 33724);
 -- original x=587.547, y= -174.927, z = 391.517; make the boss fly before encounter starts
 update creature set position_x = 590.346741, position_y = -226.947647, position_z = 460.897583 where id = 33186;
 UPDATE gameobject_template SET flags= 6553648, ScriptName="go_broken_harpoon" WHERE entry = 194565;
@@ -679,3 +679,53 @@ INSERT INTO reference_loot_template VALUES
 UPDATE gameobject SET spawntimesecs = -604800 WHERE id IN (194200, 194201);
 UPDATE gameobject SET spawnMask = 1 WHERE id = 194200;
 UPDATE gameobject SET spawnMask = 2 WHERE id = 194201;
+
+-- achievements
+DELETE FROM `achievement_criteria_requirement` WHERE `criteria_id` IN (10062, 10063, 10066, 10067, 10068, 10069, 10074, 10075, 10077, 10079, 10221, 10220, 10082, 10083, 10084, 10085, 10086, 10087, 10088, 10089, 10418, 10419, 10420, 10421, 10090, 10091, 10422, 10423, 10424, 10425, 10285, 10095, 10286, 10099, 10290, 10133, 10400, 10184, 10399, 10243);
+INSERT INTO `achievement_criteria_requirement` VALUES
+(10062, 18, 0, 0),
+(10063, 18, 0, 0),
+(10066, 18, 0, 0),
+(10067, 18, 0, 0),
+(10068, 18, 0, 0),
+(10069, 18, 0, 0),
+(10074, 18, 0, 0),
+(10075, 18, 0, 0),
+(10077, 18, 0, 0),
+(10079, 18, 0, 0),
+(10221, 7, 65737, 0),
+(10220, 7, 64193, 0),
+(10082, 18, 0, 0),
+(10083, 18, 0, 0),
+(10084, 18, 0, 0),
+(10085, 18, 0, 0),
+(10086, 18, 0, 0),
+(10087, 18, 0, 0),
+(10088, 5, 58501, 0),
+(10088, 18, 0, 0),
+(10089, 5, 58501, 0),
+(10089, 18, 0, 0),
+(10418, 5, 58501, 0),
+(10418, 18, 0, 0),
+(10419, 5, 58501, 0),
+(10419, 18, 0, 0),
+(10420, 5, 58501, 0),
+(10420, 18, 0, 0),
+(10421, 5, 58501, 0),
+(10421, 18, 0, 0),
+(10090, 18, 0, 0),
+(10091, 18, 0, 0),
+(10422, 18, 0, 0),
+(10423, 18, 0, 0),
+(10424, 18, 0, 0),
+(10425, 18, 0, 0),
+(10285, 18, 0, 0),
+(10095, 18, 0, 0),
+(10286, 18, 0, 0),
+(10099, 18, 0, 0),
+(10290, 18, 0, 0),
+(10133, 18, 0, 0),
+(10400, 18, 0, 0),
+(10184, 18, 0, 0),
+(10399, 18, 0, 0),
+(10243, 18, 0, 0);

@@ -71,6 +71,9 @@ struct MANGOS_DLL_DECL boss_faerlinaAI : public ScriptedAI
         m_uiPoisonBoltVolleyTimer = 8000;
         m_uiRainOfFireTimer = 16000;
         m_uiFrenzyTimer = 60000;
+
+        if (m_pInstance)
+                m_pInstance->SetData(TYPE_ACHI_MOMMA_SAID, DONE);
     }
 
     void SpellHit(Unit* pCaster, const SpellEntry* pSpell)
@@ -88,6 +91,9 @@ struct MANGOS_DLL_DECL boss_faerlinaAI : public ScriptedAI
             }
             else
                 m_uiFrenzyTimer = 30000;
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_ACHI_MOMMA_SAID, FAIL);
         }
     }
 
