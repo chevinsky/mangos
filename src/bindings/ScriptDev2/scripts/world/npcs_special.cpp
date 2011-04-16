@@ -1792,133 +1792,129 @@ bool GossipSelect_npc_experience_eliminator(Player* pPlayer, Creature* pCreature
 /*######
 ## Ebon Gargoyle(27829)
 ######*/
+// UPDATE `creature_template` SET `ScriptName` = 'mob_death_knight_gargoyle' WHERE `entry` = '27829';
 
-#define SPELL_GARGOYLE_STRIKE 51963
-#define GARGOYLE_STRIKE_RANGE 40.0f
-
-struct MANGOS_DLL_DECL mob_ebon_gargoyleAI : public ScriptedAI
+enum GargoyleSpells
 {
-    mob_ebon_gargoyleAI(Creature* pCreature) : ScriptedAI(pCreature)
+    SPELL_GARGOYLE_STRIKE = 51963      // Don't know if this is the correct spell, it does about 700-800 damage points
+};
+
+struct MANGOS_DLL_DECL npc_death_knight_gargoyle : public ScriptedAI
+{
+    npc_death_knight_gargoyle(Creature* pCreature) : ScriptedAI(pCreature)
     {
-        // "gargoyle flies into the area"
-        pCreature->NearTeleportTo(m_creature->GetPositionX()+5.0f, m_creature->GetPositionY()+5.0f, m_creature->GetPositionZ()+15.0f, m_creature->GetOrientation(), false);
-        m_creature->GetMotionMaster()->MovePoint(0, m_creature->GetPositionX()-5.0f, m_creature->GetPositionY()-5.0f, m_creature->GetPositionZ()-14.0f);
-
-        m_bIsReady = false; 
-        m_uiCreatorGUID = m_creature->GetCreatorGuid();
-
         Reset();
     }
+    uint32 m_uiGargoyleStrikeTimer;
+    bool inCombat;
+    Unit *owner;
 
-    Unit* pTarget;
-    uint64 m_uiTargetGUID;
-    ObjectGuid m_uiCreatorGUID;
-    uint32 m_uiStrikeTimer;
-    bool m_bIsReady;
 
-    void Reset()
+    void Reset() 
     {
-        pTarget = NULL;
-        m_uiTargetGUID = 0;
-        m_uiStrikeTimer = 0;
-    }
+     owner = m_creature->GetOwner();
+     if (!owner) return;
 
-    void MoveInLineOfSight(Unit *pWho)
-    {
-        if (!m_bIsReady)
-            return;
+     m_creature->SetLevel(owner->getLevel());
+     m_creature->setFaction(owner->getFaction());
 
-        ScriptedAI::MoveInLineOfSight(pWho);
-    }
+     m_creature->SetUInt32Value(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_NONE);
+     m_creature->SetUInt32Value(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
+     m_creature->SetUInt32Value(UNIT_FIELD_BYTES_0, 50331648);
+     m_creature->SetUInt32Value(UNIT_FIELD_BYTES_1, 50331648);
+     m_creature->AddSplineFlag(SPLINEFLAG_FLYING);
 
-    void MovementInform(uint32 uiMoveType, uint32 uiPointId)
-    {
-        if (uiMoveType != POINT_MOTION_TYPE)
-            return;
+     inCombat = false;
+     m_uiGargoyleStrikeTimer = urand(3000, 5000);
 
-        if (uiPointId == 0)
+     float fPosX, fPosY, fPosZ;
+     owner->GetPosition(fPosX, fPosY, fPosZ);
+
+     m_creature->NearTeleportTo(fPosX, fPosY, fPosZ+10.0f, m_creature->GetAngle(owner));
+
+
+     if (owner && !m_creature->hasUnitState(UNIT_STAT_FOLLOW))
         {
-            m_bIsReady = true;
-            m_creature->GetMotionMaster()->Clear();
+            m_creature->GetMotionMaster()->Clear(false);
+            m_creature->GetMotionMaster()->MoveFollow(owner, PET_FOLLOW_DIST + 3.0f, m_creature->GetAngle(owner));
+        }
+
+      if(owner->IsPvP())
+                 m_creature->SetPvP(true);
+      if(owner->IsFFAPvP())
+                 m_creature->SetFFAPvP(true);
+    }
+
+    void EnterEvadeMode()
+    {
+     if (m_creature->IsInEvadeMode() || !m_creature->isAlive())
+          return;
+
+        inCombat = false;
+
+        m_creature->AttackStop();
+        m_creature->CombatStop(true);
+        if (owner && !m_creature->hasUnitState(UNIT_STAT_FOLLOW))
+        {
+            m_creature->GetMotionMaster()->Clear(false);
+            m_creature->GetMotionMaster()->MoveFollow(owner, PET_FOLLOW_DIST + 3.0f, m_creature->GetAngle(owner));
         }
     }
 
-    void AttackStart(Unit *pWho)
+    void AttackStart(Unit* pWho)
     {
-        if (pWho)
-            m_uiTargetGUID = pWho->GetGUID();
+      if (!pWho) return;
 
-        if (!m_bIsReady)
-            return;
-
-        ScriptedAI::AttackStart(pWho);
+      if (m_creature->Attack(pWho, true))
+        {
+            m_creature->clearUnitState(UNIT_STAT_FOLLOW);
+            m_creature->SetInCombatWith(pWho);
+            pWho->SetInCombatWith(m_creature);
+            m_creature->AddThreat(pWho, 100.0f);
+            DoStartMovement(pWho, 10.0f);
+            SetCombatMovement(true);
+            inCombat = true;
+        }
     }
 
-    void UpdateAI(uint32 const uiDiff)
+    void UpdateAI(const uint32 uiDiff)
     {
-        if (!m_bIsReady)
-            return;
 
-        Player* pOwner = m_creature->GetMap()->GetPlayer(m_uiCreatorGUID);
-        if (!pOwner || !pOwner->IsInWorld())
+        if (!owner || !owner->IsInWorld())
         {
-            m_creature->DealDamage(m_creature, m_creature->GetMaxHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NONE, NULL, false);
+            m_creature->ForcedDespawn();
             return;
         }
 
-        // check if current target still exists and is atatckable
-        if (!m_creature->getVictim() )
+        if (!m_creature->getVictim())
+            if (owner && owner->getVictim())
+                AttackStart(owner->getVictim());
+
+        if (m_creature->getVictim() && m_creature->getVictim() != owner->getVictim())
+                AttackStart(owner->getVictim());
+
+        if (inCombat && !m_creature->getVictim())
         {
-            pTarget = m_creature->GetMap()->GetUnit(m_uiTargetGUID);
-
-            if (!pTarget || !m_creature->CanInitiateAttack() || !pTarget->isTargetableForAttack() ||
-            !m_creature->IsHostileTo(pTarget) || !pTarget->isInAccessablePlaceFor(m_creature))
-            {
-                // we have no target, so look for the new one
-                if (Unit *pTmp = m_creature->SelectRandomUnfriendlyTarget(0, GARGOYLE_STRIKE_RANGE) )
-                    m_uiTargetGUID = pTmp->GetGUID();
-
-                pTarget = m_creature->GetMap()->GetUnit(m_uiTargetGUID);
-
-                // now check again. if no target found then there is nothing to attack - start following the owner
-                if (!pTarget || !m_creature->CanInitiateAttack() || !pTarget->isTargetableForAttack() ||
-                !m_creature->IsHostileTo(pTarget) || !pTarget->isInAccessablePlaceFor(m_creature))
-                {
-                    if (m_creature->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
-                    {
-                        m_creature->InterruptNonMeleeSpells(false);
-                        m_creature->GetMotionMaster()->Clear();
-                        m_creature->GetMotionMaster()->MoveFollow(pOwner, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);
-                        SetCombatMovement(true);
-                        Reset();
-                    }
-                    return;
-                }
-            }
-            if (pTarget)
-            {
-                // ok, we found new target
-                SetCombatMovement(false);
-                m_creature->AI()->AttackStart(pTarget);
-            }
+            EnterEvadeMode();
+            return;
         }
 
-        // Gargoyle Strike
-        if (m_uiStrikeTimer <= uiDiff)
+        if (!inCombat) return;
+
+        if (m_uiGargoyleStrikeTimer <= uiDiff)
         {
-            if (DoCastSpellIfCan(pTarget, SPELL_GARGOYLE_STRIKE) == CAST_OK)
-                m_uiStrikeTimer = 2000;
-            else
-                SetCombatMovement(true);
+            DoCastSpellIfCan(m_creature->getVictim(), SPELL_GARGOYLE_STRIKE);
+            m_uiGargoyleStrikeTimer = urand(3000, 5000);
         }
-        else m_uiStrikeTimer -= uiDiff;
+        else m_uiGargoyleStrikeTimer -= uiDiff;
     }
 };
- 
-CreatureAI* GetAI_mob_ebon_gargoyle(Creature* pCreature)
+
+CreatureAI* GetAI_npc_death_knight_gargoyle(Creature* pCreature)
 {
-    return new mob_ebon_gargoyleAI (pCreature);
+    return new npc_death_knight_gargoyle(pCreature);
 }
+
 
 /*######
 ## Risen Ghoul, Army of the Dead Ghoul
@@ -2287,8 +2283,8 @@ void AddSC_npcs_special()
     newscript->RegisterSelf();
 
     newscript = new Script;
-    newscript->Name = "mob_ebon_gargoyle";
-    newscript->GetAI = &GetAI_mob_ebon_gargoyle;
+    newscript->Name = "npc_death_knight_gargoyle";
+    newscript->GetAI = &GetAI_npc_death_knight_gargoyle;
     newscript->RegisterSelf();
 
     newscript = new Script;
