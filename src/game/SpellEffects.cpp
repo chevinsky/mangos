@@ -7491,6 +7491,15 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     m_caster->RemoveAurasDueToSpell(530);
                     return;
                 }
+                case 52479: // Gift of the Harvester
+                {
+                    if (!unitTarget || !m_caster)
+                        return;
+
+                    // FIXME: chance is based on player's comments, the real chance may be stored somewhere in dbc
+                    m_caster->CastSpell(unitTarget, roll_chance_i(40) ? uint32(m_spellInfo->CalculateSimpleValue(eff_idx)) : 52505, true);
+                    return;
+                }
                 case 52751:                                 // Death Gate
                 {
                     if (!unitTarget || unitTarget->getClass() != CLASS_DEATH_KNIGHT)
