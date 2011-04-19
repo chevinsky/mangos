@@ -2164,11 +2164,11 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 if (unitTarget)
                 {
                     // Cast on corpses...
-                    if ((unitTarget->getDeathState() == CORPSE && !unitTarget->IsTaxiFlying() && !((Creature*)unitTarget)->isDeadByDefault() &&
+                    if ((unitTarget->getDeathState() == CORPSE && !unitTarget->IsTaxiFlying() && !((Creature*)unitTarget)->IsDeadByDefault() &&
                         (unitTarget->GetDisplayId() == unitTarget->GetNativeDisplayId()) && m_caster->IsWithinDistInMap(unitTarget, range) &&
                         (unitTarget->GetCreatureTypeMask() & CREATURE_TYPEMASK_MECHANICAL_OR_ELEMENTAL) == 0) ||
                         // ...or own Risen Ghoul pet - self explode effect
-                        (unitTarget->GetEntry() == 26125 && unitTarget->GetCreatorGUID() == m_caster->GetGUID()) )
+                        (unitTarget->GetEntry() == 26125 && unitTarget->GetCreatorGuid() == m_caster->GetGUID()) )
                     {
                         targetUnitMap.push_back(unitTarget);
                         break;
@@ -2178,7 +2178,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 // target is not valid, search for a corpse in 10yd radius
                 {
                     MaNGOS::ExplodeCorpseObjectCheck u_check(m_caster, radius);
-                    MaNGOS::UnitListSearcher<MaNGOS::ExplodeCorpseObjectCheck> searcher(m_caster, targetUnitMap, u_check);
+                    MaNGOS::UnitListSearcher<MaNGOS::ExplodeCorpseObjectCheck> searcher(targetUnitMap, u_check);
                     Cell::VisitAllObjects(m_caster, searcher, radius);
                 }
 
