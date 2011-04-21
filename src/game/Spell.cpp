@@ -1761,6 +1761,12 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 unMaxTargets = 2;
             break;
         }
+        case SPELLFAMILY_DEATHKNIGHT:
+        {
+            if (m_spellInfo->SpellIconID == 1737)           // Corpse Explosion
+                unMaxTargets = 1;
+            break;
+        }
         case SPELLFAMILY_PALADIN:
             if (m_spellInfo->Id == 20424)                   // Seal of Command (2 more target for single targeted spell)
             {
@@ -2033,6 +2039,26 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
         }
         case TARGET_ALL_ENEMY_IN_AREA:
             FillAreaTargets(targetUnitMap, m_targets.m_destX, m_targets.m_destY, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+
+            // Ghoul Taunt (Army of the Dead) - exclude Player and WorldBoss targets
+            if (m_spellInfo->Id == 43263)
+            {
+                if (!targetUnitMap.empty() )
+                {
+                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+                    {
+                        Creature *pTmp = (Creature*)(*itr);
+                        if ( ((*itr) && (*itr)->GetTypeId() == TYPEID_PLAYER) || (pTmp && pTmp->IsWorldBoss()) )
+                        {
+                            targetUnitMap.erase(itr);
+                            targetUnitMap.sort();
+                            itr = targetUnitMap.begin();
+                            continue;
+                        }
+                        itr++;
+                    }
+                }
+            }
             break;
         case TARGET_AREAEFFECT_INSTANT:
         {
@@ -2078,6 +2104,38 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     }
                 }
             }
+            
+            //Dawn of Light - don't hit death knights
+            if (m_spellInfo->Id == 53644)
+            {
+                if (!targetUnitMap.empty() )
+                {
+                    for (UnitList::iterator iter = targetUnitMap.begin(); iter != targetUnitMap.end(); ++iter)
+                    {
+                        if ((*iter)->GetTypeId() == TYPEID_PLAYER)
+                        {
+                            targetUnitMap.erase(iter);
+                            targetUnitMap.sort();
+                            iter = targetUnitMap.begin();
+                        }
+                        else
+                        {
+                            switch ((*iter)->GetEntry() )
+                            {
+                                case 29173: // Darion Mograine
+                                case 29199: // Koltira Deathweaver
+                                case 29204: // Orbaz Bloodbane
+                                case 29200: // Thassarian
+                                    targetUnitMap.erase(iter);
+                                    targetUnitMap.sort();
+                                    iter = targetUnitMap.begin();
+                                default:
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
 
             // exclude caster
             targetUnitMap.remove(m_caster);
@@ -2090,6 +2148,53 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             else if (m_spellInfo->Effect[effIndex] == SPELL_EFFECT_SUMMON)
             {
                 targetUnitMap.push_back(m_caster);
+                break;
+            }
+
+            //Corpse Explosion
+            if (m_spellInfo->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT && m_spellInfo->SpellIconID == 1737)
+            {
+                // check range = 30.0yd first, then radius = 10.0yd
+                float range = GetSpellMaxRange(sSpellRangeStore.LookupEntry(m_spellInfo->rangeIndex));
+                Unit *unitTarget = NULL;
+
+                targetUnitMap.remove(m_caster);
+                unitTarget = m_targets.getUnitTarget();
+
+                if (unitTarget)
+                {
+                    // Cast on corpses...
+                    if ((unitTarget->getDeathState() == CORPSE && !unitTarget->IsTaxiFlying() && !((Creature*)unitTarget)->IsDeadByDefault() &&
+                        (unitTarget->GetDisplayId() == unitTarget->GetNativeDisplayId()) && m_caster->IsWithinDistInMap(unitTarget, range) &&
+                        (unitTarget->GetCreatureTypeMask() & CREATURE_TYPEMASK_MECHANICAL_OR_ELEMENTAL) == 0) ||
+                        // ...or own Risen Ghoul pet - self explode effect
+                        (unitTarget->GetEntry() == 26125 && unitTarget->GetCreatorGuid() == m_caster->GetGUID()) )
+                    {
+                        targetUnitMap.push_back(unitTarget);
+                        break;
+                    }
+                }
+
+                // target is not valid, search for a corpse in 10yd radius
+                {
+                    MaNGOS::ExplodeCorpseObjectCheck u_check(m_caster, radius);
+                    MaNGOS::UnitListSearcher<MaNGOS::ExplodeCorpseObjectCheck> searcher(targetUnitMap, u_check);
+                    Cell::VisitAllObjects(m_caster, searcher, radius);
+                }
+
+                if (targetUnitMap.empty() )
+                {
+                    // no valid targets, clear cooldown at fail
+                    if (m_caster->GetTypeId() == TYPEID_PLAYER)
+                        ((Player*)m_caster)->RemoveSpellCooldown(m_spellInfo->Id, true);
+                    SendCastResult(SPELL_FAILED_NO_VALID_TARGETS);
+                    finish(false);
+                    break;
+                }
+
+                // OK, we have all possible targets, let's sort them by distance from m_caster and keep the closest one
+                targetUnitMap.sort(TargetDistanceOrder(m_caster) );
+                targetUnitMap.resize(unMaxTargets);
                 break;
             }
 
@@ -3499,21 +3604,15 @@ void Spell::handle_immediate()
     _handle_immediate_phase();
 
     for(TargetList::iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
-        m_UniqueTargetBuffer.push(*ihit);
-
-    while(!m_UniqueTargetBuffer.empty())
     {
-        DoAllEffectOnTarget(&m_UniqueTargetBuffer.front());
-        m_UniqueTargetBuffer.pop();
+        TargetInfo buffer = *ihit;
+        DoAllEffectOnTarget(&buffer);
     }
 
     for(GOTargetList::iterator ihit = m_UniqueGOTargetInfo.begin(); ihit != m_UniqueGOTargetInfo.end(); ++ihit)
-        m_UniqueGOTargetBuffer.push(*ihit);
-
-    while(!m_UniqueGOTargetBuffer.empty())
     {
-        DoAllEffectOnTarget(&m_UniqueGOTargetBuffer.front());
-        m_UniqueGOTargetBuffer.pop();
+        GOTargetInfo buffer = *ihit;
+        DoAllEffectOnTarget(&buffer);
     }
 
     // spell is finished, perform some last features of the spell here
@@ -3606,12 +3705,9 @@ void Spell::_handle_immediate_phase()
 
     // process items
     for(ItemTargetList::iterator ihit = m_UniqueItemInfo.begin(); ihit != m_UniqueItemInfo.end(); ++ihit)
-        m_UniqueItemBuffer.push(*ihit);
-
-    while(!m_UniqueItemBuffer.empty())
     {
-        DoAllEffectOnTarget(&m_UniqueItemBuffer.front());
-        m_UniqueItemBuffer.pop();
+        ItemTargetInfo buffer = *ihit;
+        DoAllEffectOnTarget(&buffer);
     }
 
     // process ground
@@ -4978,6 +5074,9 @@ SpellCastResult Spell::CheckCast(bool strict)
                     return SPELL_FAILED_CASTER_AURASTATE;
                 if (target->HasAura(61987))                 // Avenging Wrath Marker
                     return SPELL_FAILED_CASTER_AURASTATE;
+                if (m_spellInfo->Id == 53644)               // Dawn of Light - don't allow forcecast by players
+                    if (m_caster->GetTypeId() == TYPEID_PLAYER)
+                        return SPELL_FAILED_DONT_REPORT;
             }
         }
 
