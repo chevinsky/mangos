@@ -2059,6 +2059,19 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     }
                 }
             }
+            // Pyrobuffet (Sartharion encounter)
+            // don't target Range Markered units
+            else if (m_spellInfo->Id == 57557)
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_HOSTILE);
+                if (!tempTargetUnitMap.empty())
+                    for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                        if ((*iter) && !(*iter)->HasAura(m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_2)))
+                            targetUnitMap.push_back(*iter);
+                return;
+            }
             break;
         case TARGET_AREAEFFECT_INSTANT:
         {
@@ -2135,6 +2148,40 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                         }
                     }
                 }
+            }
+            // Molten Fury - Sartharion encounter
+            // target Lava Blazes only
+            if (m_spellInfo->Id == 60430)
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_NOT_HOSTILE);
+                if (!tempTargetUnitMap.empty())
+                    for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                        if ((*iter) && (*iter)->GetEntry() == 30643)
+                            targetUnitMap.push_back(*iter);
+                break;
+            }
+            // Berserk - Sartharion encounter
+            // target dragon bosses only
+            if (m_spellInfo->Id == 61632)
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_FRIENDLY);
+                if (!tempTargetUnitMap.empty())
+                    for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                        switch ((*iter)->GetEntry() )
+                            {
+                                case 28860: // Sartharion
+                                case 30452: // Tenebron
+                                case 30451: // Shadron
+                                case 30449: // Vesperon
+                                    targetUnitMap.push_back(*iter);
+                                default:
+                                    break;
+                            }
+                break;
             }
 
             // exclude caster
