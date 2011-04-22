@@ -7255,6 +7255,50 @@ bool Spell::CheckTarget( Unit* target, SpellEffectIndex eff )
             return false;
     }
 
+    // Checkout if target is behing particular object (Garfrost - Permafrost, Sapphiron AoE)
+    switch(m_spellInfo->Id)
+    {
+        case 68786:
+        //case 28524:
+        //case 29318: //?
+        {
+            uint32 uiObjectEntry = m_spellInfo->Id == 68786 ? 196485 : 0; // cant remember right now sapph GO id
+
+            // Description:
+            // code check out if player is hidden behind GO in circle with diameter equal to GO size
+            // with center placed on the perimeter of GO
+            //     C<- caster
+            //    / \<- cone of spell
+            //   /   \
+            //  / (o) \<- shelter object
+            // /  (T)  \<- target in safty circle
+
+            std::list<GameObject*>lObjectList;
+            target->GetGameObjectListWithEntryInGrid(lObjectList, target, uiObjectEntry, target->GetDistance2d(m_caster));
+            float fTargetX, fTargetY, fTargetZ;
+            float fCasterX, fCasterY, fCasterZ;
+            target->GetPosition(fTargetX, fTargetY, fTargetZ);
+            m_caster->GetPosition(fCasterX, fCasterY, fCasterZ);
+            for (std::list<GameObject*>::iterator itr = lObjectList.begin(); itr != lObjectList.end(); ++itr)
+            { 
+                float fObjectSize = (*itr)->GetGOInfo()->size;
+                if (target->GetDistance2d(*itr) > fObjectSize)
+                    continue;
+
+                float fObjectX, fObjectY, fObjectZ;
+                (*itr)->GetPosition(fObjectX, fObjectY, fObjectZ);
+                float fAlpha = m_caster->GetAngle(fTargetX, fTargetY);
+                float fCircleX, fCircleY;
+                fCircleY = fObjectY + fObjectSize*sin(fAlpha);
+                fCircleX = fObjectX + fObjectSize*cos(fAlpha);
+                if (target->GetDistance2d(fCircleX, fCircleY) <= fObjectSize)
+                    return false;
+            }
+            break;
+        }
+        default: break;
+    }
+
     // Check Sated & Exhaustion debuffs
     if (((m_spellInfo->Id == 2825) && (target->HasAura(57724))) ||
         ((m_spellInfo->Id == 32182) && (target->HasAura(57723))))
