@@ -12153,6 +12153,14 @@ void Unit::OnRelocated()
     ScheduleAINotify(World::GetRelocationAINotifyDelay());
 }
 
+void Unit::GetGameObjectListWithEntryInGrid(std::list<GameObject*>& lList , WorldObject* pSource, uint32 uiEntry, float fMaxSearchRange)
+{
+    MaNGOS::AllGameObjectsWithEntryInRangeCheck check(pSource, uiEntry, fMaxSearchRange);
+    MaNGOS::GameObjectListSearcher<MaNGOS::AllGameObjectsWithEntryInRangeCheck> searcher(lList, check);
+
+    Cell::VisitGridObjects(pSource, searcher, fMaxSearchRange);
+}
+
 ObjectGuid const& Unit::GetCreatorGuid() const
 {
     switch(GetObjectGuid().GetHigh())

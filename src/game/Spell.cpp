@@ -1377,6 +1377,7 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
     {
         m_spellAuraHolder = CreateSpellAuraHolder(m_spellInfo, unit, realCaster, m_CastItem);
         m_spellAuraHolder->setDiminishGroup(m_diminishGroup);
+        m_spellAuraHolder->SetInUse(true);
     }
     else
         m_spellAuraHolder = NULL;
@@ -1430,9 +1431,23 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
             }
 
             unit->AddSpellAuraHolder(m_spellAuraHolder);
+            m_spellAuraHolder->SetInUse(false);
         }
         else
-            delete m_spellAuraHolder;
+        {
+            if (!m_spellAuraHolder || m_spellAuraHolder->IsDeleted())
+                return;
+
+            m_spellAuraHolder->SetInUse(false);
+
+            if (m_spellAuraHolder->IsInUse())
+            {
+                m_spellAuraHolder->SetDeleted();
+                unit->AddSpellAuraHolderToRemoveList(m_spellAuraHolder);
+            }
+            else
+                delete m_spellAuraHolder;
+        }
     }
 }
 
@@ -2059,6 +2074,19 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     }
                 }
             }
+            // Pyrobuffet (Sartharion encounter)
+            // don't target Range Markered units
+            else if (m_spellInfo->Id == 57557)
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_HOSTILE);
+                if (!tempTargetUnitMap.empty())
+                    for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                        if ((*iter) && !(*iter)->HasAura(m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_2)))
+                            targetUnitMap.push_back(*iter);
+                return;
+            }
             break;
         case TARGET_AREAEFFECT_INSTANT:
         {
@@ -2135,6 +2163,40 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                         }
                     }
                 }
+            }
+            // Molten Fury - Sartharion encounter
+            // target Lava Blazes only
+            if (m_spellInfo->Id == 60430)
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_NOT_HOSTILE);
+                if (!tempTargetUnitMap.empty())
+                    for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                        if ((*iter) && (*iter)->GetEntry() == 30643)
+                            targetUnitMap.push_back(*iter);
+                break;
+            }
+            // Berserk - Sartharion encounter
+            // target dragon bosses only
+            if (m_spellInfo->Id == 61632)
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_FRIENDLY);
+                if (!tempTargetUnitMap.empty())
+                    for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                        switch ((*iter)->GetEntry() )
+                            {
+                                case 28860: // Sartharion
+                                case 30452: // Tenebron
+                                case 30451: // Shadron
+                                case 30449: // Vesperon
+                                    targetUnitMap.push_back(*iter);
+                                default:
+                                    break;
+                            }
+                break;
             }
 
             // exclude caster
@@ -5857,6 +5919,19 @@ SpellCastResult Spell::CheckCast(bool strict)
             case SPELL_EFFECT_LEAP:
             case SPELL_EFFECT_TELEPORT_UNITS_FACE_CASTER:
             {
+                float dis = GetSpellRadius(sSpellRadiusStore.LookupEntry(m_spellInfo->EffectRadiusIndex[i]));
+                float fx = m_caster->GetPositionX() + dis * cos(m_caster->GetOrientation());
+                float fy = m_caster->GetPositionY() + dis * sin(m_caster->GetOrientation());
+                // teleport a bit above terrain level to avoid falling below it
+                float fz = m_caster->GetTerrain()->GetHeight(fx, fy, m_caster->GetPositionZ(), true);
+                if(fz <= INVALID_HEIGHT)                    // note: this also will prevent use effect in instances without vmaps height enabled
+                    return SPELL_FAILED_TRY_AGAIN;
+
+                float caster_pos_z = m_caster->GetPositionZ();
+                // Control the caster to not climb or drop when +-fz > 8
+                if(!(fz <= caster_pos_z + 8 && fz >= caster_pos_z - 8))
+                    return SPELL_FAILED_TRY_AGAIN;
+
                 // not allow use this effect at battleground until battleground start
                 if(m_caster->GetTypeId() == TYPEID_PLAYER)
                 {
@@ -7206,6 +7281,50 @@ bool Spell::CheckTarget( Unit* target, SpellEffectIndex eff )
 
         if(((Player*)target)->isGameMaster() && !IsPositiveSpell(m_spellInfo->Id))
             return false;
+    }
+
+    // Checkout if target is behing particular object (Garfrost - Permafrost, Sapphiron AoE)
+    switch(m_spellInfo->Id)
+    {
+        case 68786:
+        //case 28524:
+        //case 29318: //?
+        {
+            uint32 uiObjectEntry = m_spellInfo->Id == 68786 ? 196485 : 0; // cant remember right now sapph GO id
+
+            // Description:
+            // code check out if player is hidden behind GO in circle with diameter equal to GO size
+            // with center placed on the perimeter of GO
+            //     C<- caster
+            //    / \<- cone of spell
+            //   /   \
+            //  / (o) \<- shelter object
+            // /  (T)  \<- target in safty circle
+
+            std::list<GameObject*>lObjectList;
+            target->GetGameObjectListWithEntryInGrid(lObjectList, target, uiObjectEntry, target->GetDistance2d(m_caster));
+            float fTargetX, fTargetY, fTargetZ;
+            float fCasterX, fCasterY, fCasterZ;
+            target->GetPosition(fTargetX, fTargetY, fTargetZ);
+            m_caster->GetPosition(fCasterX, fCasterY, fCasterZ);
+            for (std::list<GameObject*>::iterator itr = lObjectList.begin(); itr != lObjectList.end(); ++itr)
+            { 
+                float fObjectSize = (*itr)->GetGOInfo()->size;
+                if (target->GetDistance2d(*itr) > fObjectSize)
+                    continue;
+
+                float fObjectX, fObjectY, fObjectZ;
+                (*itr)->GetPosition(fObjectX, fObjectY, fObjectZ);
+                float fAlpha = m_caster->GetAngle(fTargetX, fTargetY);
+                float fCircleX, fCircleY;
+                fCircleY = fObjectY + fObjectSize*sin(fAlpha);
+                fCircleX = fObjectX + fObjectSize*cos(fAlpha);
+                if (target->GetDistance2d(fCircleX, fCircleY) <= fObjectSize)
+                    return false;
+            }
+            break;
+        }
+        default: break;
     }
 
     // Check Sated & Exhaustion debuffs
