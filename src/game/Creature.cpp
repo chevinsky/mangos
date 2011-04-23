@@ -498,6 +498,9 @@ void Creature::Update(uint32 update_diff, uint32 diff)
                 if (GetDisplayId() != GetNativeDisplayId() )
                     SetDisplayId(GetNativeDisplayId() );
                 
+                if (GetDisplayId() != GetNativeDisplayId() )
+                    SetDisplayId(GetNativeDisplayId() );
+
                 CreatureInfo const *cinfo = GetCreatureInfo();
 
                 SelectLevel(cinfo);
