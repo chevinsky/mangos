@@ -508,31 +508,6 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         targetUnitMap.resize(1);
         return true;
     }
-    //Raise Dead
-    if (m_spellInfo->Id == 46584)
-    {
-        Unit *unitTarget = m_targets.getUnitTarget();
-        
-        targetUnitMap.remove(m_caster);
-        
-        if (unitTarget && unitTarget != m_caster)
-        {
-            MaNGOS::RaiseDeadObjectCheck ec_chk(m_caster, radius);
-            if (ec_chk(unitTarget) )
-            {
-                targetUnitMap.push_back(unitTarget);
-                break;
-            }
-        }
-        
-        WorldObject* result = FindCorpseUsing<MaNGOS::RaiseDeadObjectCheck> ();
-        
-        if(result && (result->GetTypeId() == TYPEID_UNIT || result->GetTypeId() == TYPEID_PLAYER) )
-            targetUnitMap.push_back((Unit*)result);
-        else
-            targetUnitMap.push_back(m_caster);
-        break;
-    }
 
     // Resulting effect depends on spell that we want to cast
     switch (m_spellInfo->Id)
@@ -4183,9 +4158,6 @@ void Spell::SendCastResult(Player* caster, SpellEntry const* spellInfo, uint8 ca
             data << uint32(spellInfo->EquippedItemSubClassMask);
             //data << uint32(spellInfo->EquippedItemInventoryTypeMask);
             break;
-        case SPELL_FAILED_REAGENTS:
-            if (spellInfo->Id == 46584)                   // Raise Dead (hack?)
-                data << uint32(37201);                    // Corpse Dust
         default:
             break;
     }
