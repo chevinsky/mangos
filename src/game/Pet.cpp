@@ -220,6 +220,11 @@ bool Pet::LoadPetFromDB( Player* owner, uint32 petentry, uint32 petnumber, bool 
             petlevel=owner->getLevel();
             SetByteValue(UNIT_FIELD_BYTES_0, 1, CLASS_MAGE);
             SetUInt32Value(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
+
+            // Raise Dead
+            if (GetEntry() == 26125)
+                setPowerType(POWER_ENERGY);
+
             break;
         case HUNTER_PET:
             SetByteValue(UNIT_FIELD_BYTES_0, 1, CLASS_WARRIOR);
@@ -242,6 +247,9 @@ bool Pet::LoadPetFromDB( Player* owner, uint32 petentry, uint32 petnumber, bool 
 
     if(owner->IsFFAPvP())
         SetFFAPvP(true);
+    
+    if (spellInfo && spellInfo->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
+        owner->AddSpellAndCategoryCooldowns(spellInfo, 0, NULL,true);
 
     SetCanModifyStats(true);
     InitStatsForLevel(petlevel);
@@ -523,6 +531,25 @@ void Pet::SetDeathState(DeathState s)                       // overwrite virtual
                 GetOwner()->CastSpell(GetOwner(), 54114, false);
 
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
+        }
+        
+        // send cooldown for summon spell if necessary
+        if (Player* p_owner = GetCharmerOrOwnerPlayerOrPlayerItself())
+        {
+            SpellEntry const *spellInfo = sSpellStore.LookupEntry(GetUInt32Value(UNIT_CREATED_BY_SPELL));
+            if (spellInfo && spellInfo->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
+            {
+                p_owner->SendCooldownEvent(spellInfo);
+
+                // Raise Dead, client's spell cooldown hack
+                if (GetEntry() == 26125)
+                {
+                    WorldPacket data(SMSG_COOLDOWN_EVENT, (4+8));
+                    data << uint32(46584);
+                    data << uint64(GetGUID());
+                    p_owner->SendDirectMessage(&data);
+                }
+            }
         }
     }
     else if(getDeathState()==ALIVE)

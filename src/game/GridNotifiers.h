@@ -530,20 +530,29 @@ namespace MaNGOS
     class RaiseDeadObjectCheck
     {
         public:
-            RaiseDeadObjectCheck(WorldObject const* fobj, float range) : i_fobj(fobj), i_range(range) {}
+            RaiseDeadObjectCheck(Unit const* fobj, float range)
+            {
+                i_range = range;
+
+                if (fobj && fobj->GetTypeId() == TYPEID_PLAYER)
+                    i_fobj = (Player const*)fobj;
+                else
+                    i_fobj = NULL;
+            }
             WorldObject const& GetFocusObject() const { return *i_fobj; }
             bool operator()(Player* u)
             {
-                if( u->isAlive() || u->IsTaxiFlying() )
+                if (i_fobj->IsFriendlyTo(u) || u->isAlive() || u->HasAuraType(SPELL_AURA_GHOST) || u->getDeathState()!=CORPSE ||
+                    u->IsTaxiFlying() || !i_fobj->isHonorOrXPTarget(u))
                     return false;
 
                 return i_fobj->IsWithinDistInMap(u, i_range);
             }
-            bool operator()(Corpse* u);
             bool operator()(Creature* u)
             {
-                if ( u->isAlive() || u->IsDeadByDefault() || u->IsTaxiFlying() ||
-                   ( u->GetCreatureTypeMask() & CREATURE_TYPEMASK_HUMANOID_OR_UNDEAD) == 0 )
+                if (i_fobj->isHonorOrXPTarget(u) || u->GetDisplayId() != u->GetNativeDisplayId() ||
+                    u->getDeathState() != CORPSE || u->IsDeadByDefault() || u->IsTaxiFlying() ||
+                    ( u->GetCreatureTypeMask() & CREATURE_TYPEMASK_HUMANOID_OR_UNDEAD) == 0)
                     return false;
 
                 return i_fobj->IsWithinDistInMap(u, i_range);

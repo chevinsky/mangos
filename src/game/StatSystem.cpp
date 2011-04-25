@@ -919,6 +919,47 @@ bool Pet::UpdateStats(Stats stat)
 
     // value = ((create_value + base_value * base_pct) + total_value) * total_pct
     float value  = GetTotalStatValue(stat);
+
+        Unit *owner = GetOwner();
+
+    // Death Knight's Risen Ghouls
+    if ((stat == STAT_STAMINA || stat == STAT_STRENGTH) && GetEntry() == 26125 && owner)
+    {
+        float mod = (stat == STAT_STAMINA) ? 0.3f : 0.7f;
+        float ravenous = 1.0f; // Ravenous Dead talent's modifier
+        float glyph = 0.0f; // Glyph of the Ghoul talent's modifier
+
+        // Glyph of the Ghoul
+        if (SpellAuraHolder *pGlyph = owner->GetSpellAuraHolder(58686) )
+            if (SpellEntry const *spellInfo = pGlyph->GetSpellProto() )
+                glyph = float(spellInfo->CalculateSimpleValue(EFFECT_INDEX_0)) / 100.0f;
+
+        // Ravenous Dead
+        AuraList const& lAuras = owner->GetAurasByType(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
+        for (AuraList::const_iterator itr = lAuras.begin(); itr != lAuras.end(); itr++)
+            if ( (*itr)->GetSpellProto()->SpellIconID == 3010){
+                ravenous += float((*itr)->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_1) / 100.0f); break;}
+
+            value += float(owner->GetStat(stat) * (mod * ravenous + glyph) );
+    }
+    else if (stat == STAT_STAMINA && GetEntry() == 27829 && owner)
+    {
+        value += float(owner->GetStat(stat)) * 0.75f;
+    }
+    else if ( stat == STAT_STAMINA )
+    {
+        if(owner && owner->GetTypeId() == TYPEID_PLAYER && owner->getClass() == CLASS_WARLOCK)
+            value += float(owner->GetStat(stat)) * 0.75f;
+        else if (owner)
+            value += float(owner->GetStat(stat)) * 0.3f;
+    }
+                                                            //warlock's and mage's pets gain 30% of owner's intellect
+    else if ( stat == STAT_INTELLECT && getPetType() == SUMMON_PET )
+    {
+        if(owner && (owner->getClass() == CLASS_WARLOCK || owner->getClass() == CLASS_MAGE) )
+            value += float(owner->GetStat(stat)) * 0.3f;
+    }
+
     SetStat(stat, int32(value));
 
     switch(stat)
