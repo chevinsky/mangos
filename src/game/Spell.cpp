@@ -2145,6 +2145,27 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                             targetUnitMap.push_back(*iter);
                 return;
             }
+
+            // Arcane Storm (Malygos)
+            // don't target main target (2-3 or 4-5 random targets)
+            else if (m_spellInfo->Id == 61693 || m_spellInfo->Id == 61694)
+            {
+                if (m_caster->getVictim())
+                    targetUnitMap.remove(m_caster->getVictim());
+            }
+
+            // Focused Eyebeam (Kologarn)
+            else if (m_spellInfo->Id == 63342)
+            {
+                targetUnitMap.clear();
+                if (m_targets.getUnitTarget())
+                {
+                    targetUnitMap.push_back(m_targets.getUnitTarget());
+                    return;
+                }
+                else
+                    unMaxTargets = 1;
+            }
             break;
         case TARGET_AREAEFFECT_INSTANT:
         {
