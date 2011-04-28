@@ -1764,7 +1764,15 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 39992:                                 // Needle Spine Targeting (Warlord Najentus)
                 case 51904:                                 // Limiting the count of Summoned Ghouls
                 case 54522:
+                case 61693:                                 // Arcane Storm (Malygos)
+                case 60936:                                 // Surge of Power (h) (Malygos)
                     unMaxTargets = 3;
+                    break;
+                case 61916:                                 // Lightning Whirl (Stormcaller Brundir - Ulduar)
+                    unMaxTargets = urand(2, 3);
+                    break;
+                case 63482:                                 // Lightning Whirl (h) (Stormcaller Brundir - Ulduar)
+                    unMaxTargets = urand(3, 6);
                     break;
                 case 30843:                                 // Enfeeble TODO: exclude top threat target from target selection
                 case 42005:                                 // Bloodboil TODO: need to be 5 targets(players) furthest away from caster
