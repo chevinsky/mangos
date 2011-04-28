@@ -1738,8 +1738,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 59870:                                 // Glare of the Tribunal (h) (Halls of Stone)
                 case 63387:                                 // Rapid Burst
                 case 64531:                                 // Rapid Burst (h)
-                case 61916:                                 // Lightning Whirl (10 man)
-                case 63482:                                 // Lightning Whirl (25 man)
                 case 66336:                                 // Mistress' Kiss (Trial of the Crusader, ->
                 case 67077:                                 // -> Lord Jaraxxus encounter, 10 and 10 heroic)
                 case 66001:                                 // Touch of Darkness
