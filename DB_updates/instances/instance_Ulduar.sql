@@ -156,7 +156,7 @@ UPDATE creature_template SET ScriptName = "mob_dark_rune_watcher" WHERE entry = 
 UPDATE creature_template SET ScriptName = "mob_dark_rune_sentinel" WHERE entry = 33846;
 UPDATE creature_template SET ScriptName = "mob_dark_rune_guardian" WHERE entry = 33388;
 UPDATE creature_template SET ScriptName = "npc_expedition_commander" WHERE entry = 33210;
-UPDATE creature_template SET ScriptName = "mob_devouring_flame_target" WHERE entry in (34189, 34188);
+UPDATE creature_template SET ScriptName = "mob_devouring_flame_target" WHERE entry in (34188);
 UPDATE creature_template SET unit_flags = 0 WHERE `entry` = 33233;
 UPDATE `creature_template`SET `unit_flags` = `unit_flags`&~33554432 WHERE entry = 33282;
 -- expedition NPCs - don't enter the fight
@@ -378,7 +378,7 @@ UPDATE creature_model_info SET bounding_radius = 40, combat_reach = 40 WHERE mod
 UPDATE creature_template SET scriptname='boss_kologarn' WHERE entry = 32930;
 UPDATE creature_template SET scriptname='boss_right_arm' WHERE entry=32934;
 UPDATE creature_template SET scriptname='boss_left_arm' WHERE entry=32933;
-UPDATE creature_template SET ScriptName = 'mob_ulduar_rubble' WHERE entry IN (33768, 33809, 33908, 33942);
+UPDATE creature_template SET ScriptName = 'mob_ulduar_rubble' WHERE entry IN (33768, 33809);
 UPDATE creature_template SET ScriptName = "mob_eyebeam_trigger" WHERE entry IN (33802, 33632);
 UPDATE creature_template SET scriptname = "mob_kologarn_pit_kill_bunny" WHERE entry = 33742;
 UPDATE creature SET DeathState = 1 WHERE id = 34297;
