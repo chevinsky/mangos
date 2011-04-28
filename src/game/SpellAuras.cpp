@@ -458,7 +458,7 @@ m_isPersistent(false), m_in_use(0), m_spellAuraHolder(holder)
             uint32 _periodicTime = m_modifier.periodictime;
 
             // Calculate new periodic timer
-            int32 ticks = oldDuration / _periodicTime;
+            int32 ticks = oldDuration / _periodicTime + 1;
 
             _periodicTime = new_duration / ticks;
 
@@ -4035,7 +4035,7 @@ void Aura::HandleChannelDeathItem(bool apply, bool Real)
         uint32 count = m_modifier.m_amount;
 
         ItemPosCountVec dest;
-        uint8 msg = ((Player*)caster)->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, spellInfo->EffectItemType[m_effIndex], count, &noSpaceForCount);
+        InventoryResult msg = ((Player*)caster)->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, spellInfo->EffectItemType[m_effIndex], count, &noSpaceForCount);
         if( msg != EQUIP_ERR_OK )
         {
             count-=noSpaceForCount;

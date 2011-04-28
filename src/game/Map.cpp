@@ -443,7 +443,7 @@ void Map::Update(const uint32 &t_diff)
             WorldSession * pSession = plr->GetSession();
             MapSessionFilter updater(pSession);
 
-            pSession->Update(t_diff, updater);
+            pSession->Update(updater);
         }
     }
 
@@ -610,7 +610,9 @@ void Map::Remove(Player *player, bool remove)
     SendRemoveTransports(player);
     UpdateObjectVisibility(player,cell,p);
 
-    player->ResetMap();
+    if (!player->GetPlayerbotAI())
+        player->ResetMap();
+
     if( remove )
         DeleteFromWorld(player);
 }
