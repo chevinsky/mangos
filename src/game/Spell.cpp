@@ -2161,7 +2161,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             }
 
             // Focused Eyebeam (Kologarn)
-            else if (m_spellInfo->Id == 63342)
+            else if (m_spellInfo->Id == 63342 ||                         // Focused Eyebeam (Kologarn)
+                m_spellInfo->Id == 62166 || m_spellInfo->Id == 63981)    // Stone Grip (Kologarn)
             {
                 targetUnitMap.clear();
                 if (m_targets.getUnitTarget())
@@ -2681,8 +2682,24 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             {
                 FillRaidOrPartyHealthPriorityTargets(targetUnitMap, m_caster, m_caster, radius, 1, true, false, false);
             }
+            // Gravity Bomb, Searing Light
+            else if (m_spellInfo->SpellIconID == 3757 || m_spellInfo->SpellIconID == 3021)
+            {
+               // targets are checked with original caster, which is in fact hostile, not friendly
+                if (Unit *pTarget = m_targets.getUnitTarget())
+                {
+                    FillAreaTargets(targetUnitMap, pTarget->GetPositionX(), pTarget->GetPositionY(), radius, PUSH_TARGET_CENTER, SPELL_TARGETS_FRIENDLY, pTarget);
+                    targetUnitMap.remove(pTarget); // the target of aura triggering this spell
+                    return;
+                }
+            }
             else
+            {
                 FillAreaTargets(targetUnitMap, m_targets.m_destX, m_targets.m_destY, radius, PUSH_DEST_CENTER, SPELL_TARGETS_FRIENDLY);
+                
+                if (m_spellInfo->Id == 27820) // Detonate Mana
+                    targetUnitMap.remove(m_caster);
+            }
             break;
         // TARGET_SINGLE_PARTY means that the spells can only be casted on a party member and not on the caster (some seals, fire shield from imp, etc..)
         case TARGET_SINGLE_PARTY:
@@ -3274,6 +3291,27 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                         case SPELL_AURA_MOD_DAMAGE_DONE:
                             targetUnitMap.push_back(m_caster);
                             break;
+                        case SPELL_AURA_PERIODIC_DAMAGE:
+                        {
+                            switch (m_spellInfo->Id)
+                            {
+                                case 63024: // Gravity Bomb (XT-002)
+                                case 64234: // Gravity Bomb (h) (XT-002)
+                                case 63018: // Searing Light (XT-002)
+                                case 65121: // Searing Light (h) (XT-002)
+                                {
+                                    if (Unit *pTarget = m_targets.getUnitTarget())
+                                    {
+                                        targetUnitMap.clear();
+                                        targetUnitMap.push_back(pTarget);
+                                        return;
+                                    }
+                                }
+                                default:
+                                    break;
+                            }
+                            break;
+                        }
                         default:                            // apply to target in other case
                             if (m_targets.getUnitTarget())
                                 targetUnitMap.push_back(m_targets.getUnitTarget());
