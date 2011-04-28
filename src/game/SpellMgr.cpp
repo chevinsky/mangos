@@ -746,6 +746,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
                 case SPELL_AURA_MOD_DODGE_PERCENT:
                 case SPELL_AURA_MOD_HEALING_PCT:
                 case SPELL_AURA_MOD_HEALING_DONE:
+                case SPELL_AURA_MOD_RESISTANCE_PCT:
                     if(spellproto->CalculateSimpleValue(effIndex) < 0)
                         return false;
                     break;
