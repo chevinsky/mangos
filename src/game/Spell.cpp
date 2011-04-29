@@ -1244,7 +1244,8 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
                     {
                         uint8 chainTarget = 0;
 
-                        for(tbb::concurrent_vector<TargetInfo>::iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
+                        //for(Unit::SpellAuraHolderMap::const_iterator itr = auras.begin(); itr!=auras.end(); ++itr)
+                        for(TargetList::const_iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
                         {
                             chainTarget++;
                             if (ihit->targetGUID == unitTarget->GetObjectGuid() && ihit->effectMask & (1<<i))
@@ -1261,6 +1262,8 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
                     }
                 }
             }
+            caster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, m_attackType, chainJumpCoeff);
+        }
         unitTarget->CalculateAbsorbResistBlock(caster, &damageInfo, m_spellInfo);
 
         caster->DealDamageMods(damageInfo.target, damageInfo.damage, &damageInfo.absorb);
