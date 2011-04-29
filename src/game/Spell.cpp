@@ -1757,6 +1757,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 28542:                                 // Life Drain
                 case 66013:                                 // Penetrating Cold (10 man)
                 case 68509:                                 // Penetrating Cold (10 man heroic)
+                case 62476:                                 // Icicle (Hodir 10man)
                     unMaxTargets = 2;
                     break;
                 case 28796:                                 // Poison Bolt Volley
@@ -1767,6 +1768,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 54522:
                 case 61693:                                 // Arcane Storm (Malygos)
                 case 60936:                                 // Surge of Power (h) (Malygos)
+                case 62477:                                 // Icicle (Hodir 25man)
                     unMaxTargets = 3;
                     break;
                 case 61916:                                 // Lightning Whirl (Stormcaller Brundir - Ulduar)
@@ -3302,6 +3304,11 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                         case SPELL_AURA_MOD_DAMAGE_DONE:
                             targetUnitMap.push_back(m_caster);
                             break;
+                        case SPELL_AURA_DUMMY:
+                        {
+                                SetTargetMap(effIndex, m_spellInfo->EffectImplicitTargetB[effIndex], targetUnitMap);
+                                return;
+                        }
                         case SPELL_AURA_PERIODIC_DAMAGE:
                         {
                             switch (m_spellInfo->Id)
@@ -3348,6 +3355,17 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     break;
             }
             break;
+        }
+        case TARGET_UNK_92:
+        {
+            if (Unit *unitTarget = m_targets.getUnitTarget())
+            targetUnitMap.push_back(unitTarget);
+            else
+            {
+                if (Unit *creator = m_caster->GetMap()->GetUnit(m_caster->GetCreatorGuid()))
+                targetUnitMap.push_back(creator);
+             }
+             break;
         }
         default:
             //sLog.outError( "SPELL: Unknown implicit target (%u) for spell ID %u", targetMode, m_spellInfo->Id );
@@ -3623,6 +3641,9 @@ void Spell::cast(bool skipCheck)
                 AddTriggeredSpell(74610);                  // Fiery combustion
             else if (m_spellInfo->Id == 74799)
                 AddTriggeredSpell(74800);                  // Soul consumption
+            // Flash Freeze (Hodir: Ulduar)
+            else if (m_spellInfo->Id == 61968)
+                AddTriggeredSpell(62148);                   // visual effect
             break;
         }
         case SPELLFAMILY_MAGE:

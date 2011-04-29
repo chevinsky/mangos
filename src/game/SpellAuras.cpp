@@ -8300,6 +8300,42 @@ void Aura::PeriodicDummyTick()
                 case 50824:                                 // Summon earthen dwarf
                     target->CastSpell(target, roll_chance_i(50) ? 50825 : 50826, true, NULL, this);
                     return;
+                case 62038: // Biting Cold (Ulduar: Hodir)
+                {
+                    if (target->GetTypeId() != TYPEID_PLAYER)
+                        return;
+
+                    // aura stack increase every 3 (data in m_miscvalue) seconds and decrease every 1s
+                    SpellAuraHolder *holder = target->GetSpellAuraHolder(62039);
+                    // Reset reapply counter at move and decrease stack amount by 1
+                    if (((Player*)target)->isMoving())
+                    {
+                        if (holder)
+                        {
+                            if (holder->ModStackAmount(-1))
+                                target->RemoveSpellAuraHolder(holder);
+                        }
+                        m_modifier.m_miscvalue = 3;
+                        return;
+                    }
+
+                    // dmg dealing every second if at least 1 aura stack is present
+                    if (holder)
+                        target->CastSpell(target, 62188, true);
+                    // We are standing at the moment, countdown
+                    if (m_modifier.m_miscvalue > 0)
+                    {
+                        --m_modifier.m_miscvalue;
+                        return;
+                    }
+
+                    target->CastSpell(target, 62039, true);
+                    target->CastSpell(target, 62188, true);
+
+                    // recast every ~3 seconds
+                    m_modifier.m_miscvalue = 3;
+                    return;
+                }
                 case 52441:                                 // Cool Down
                     target->CastSpell(target, 52443, true);
                     return;
