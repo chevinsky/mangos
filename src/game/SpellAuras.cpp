@@ -1103,6 +1103,16 @@ void Aura::HandleAddModifier(bool apply, bool Real)
             case 64823:                                     // Elune's Wrath (Balance druid t8 set
                 GetHolder()->SetAuraCharges(1);
                 break;
+            // Shamanism spell coeff
+            // divided by 3 chain lighning jumps
+            case 62097: // Shamanism rank1
+            case 62098: // Shamanism rank2
+            case 62099: // Shamanism rank3
+            case 62100: // Shamanism rank4
+            case 62101: // Shamanism rank5
+                // divide by 4 with additional target from Glyph of Chain Lightning
+                m_modifier.m_amount = (int32)(ceil(m_modifier.m_amount / (GetTarget()->HasAura(55449) ? 4.0f : 3.0f)));
+                break;
         }
 
         m_spellmod = new SpellModifier(
@@ -2585,6 +2595,25 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 target->RemoveAurasDueToSpell(41105);
                 return;
             }
+            case 42454:                                     // Captured Totem
+            {
+                if (m_removeMode == AURA_REMOVE_BY_DEFAULT)
+                {
+                    if (target->getDeathState() != CORPSE)
+                        return;
+
+                    Unit* pCaster = GetCaster();
+
+                    if (!pCaster)
+                        return;
+
+                    // Captured Totem Test Credit
+                    if (Player* pPlayer = pCaster->GetCharmerOrOwnerPlayerOrPlayerItself())
+                        pPlayer->CastSpell(pPlayer, 42455, true);
+                }
+
+                return;
+            }
             case 42517:                                     // Beam to Zelfrax
             {
                 // expecting target to be a dummy creature
@@ -2864,7 +2893,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 case 29266:                                 // Permanent Feign Death
                 case 31261:                                 // Permanent Feign Death (Root)
                 case 37493:                                 // Feign Death
-                case 51329:                                 // Feign Death
                 case 52593:                                 // Bloated Abomination Feign Death
                 case 55795:                                 // Falling Dragon Feign Death
                 case 57626:                                 // Feign Death
@@ -2891,12 +2919,13 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 case 35356:                                 // Spawn Feign Death
                 case 35357:                                 // Spawn Feign Death
                 case 42557:                                 // Feign Death
+                case 51329:                                 // Feign Death
                 {
                     if (target->GetTypeId() == TYPEID_UNIT)
                     {
-                        // Flags not set like it's done in SetFeignDeath() and apparently always applied at spawn of creature
-                        // All three does however have SPELL_EFFECT_SPAWN(46) as effect1
-                        // It is possible this effect will remove some flags, and then the three here can be handled "normally"
+                        // Flags not set like it's done in SetFeignDeath()
+                        // UNIT_DYNFLAG_DEAD does not appear with these spells.
+                        // All of the spells appear to be present at spawn and not used to feign in combat or similar.
                         if (apply)
                         {
                             target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNK_29);
@@ -3309,6 +3338,25 @@ void Aura::HandleAuraFeatherFall(bool apply, bool Real)
     // start fall from current height
     if(!apply && target->GetTypeId() == TYPEID_PLAYER)
         ((Player*)target)->SetFallInformation(0, target->GetPositionZ());
+
+    // additional custom cases
+    if(!apply)
+    {
+        switch(GetId())
+        {
+            // Soaring - Test Flight chain
+            case 36812:
+            case 37910:
+            case 37940:
+            case 37962:
+            case 37968:
+            {
+                if(Unit* pCaster = GetCaster())
+                    pCaster->CastSpell(pCaster, 37108, true);
+                return;
+            }
+        }
+    }
 }
 
 void Aura::HandleAuraHover(bool apply, bool Real)
@@ -5213,6 +5261,20 @@ void Aura::HandleModMechanicImmunity(bool apply, bool /*Real*/)
     // Heroic Fury (Intercept cooldown remove)
     else if (apply && GetSpellProto()->Id == 60970 && target->GetTypeId() == TYPEID_PLAYER)
         ((Player*)target)->RemoveSpellCooldown(20252, true);
+     // Potent Pheromones (Freya encounter)
+    else if (GetId() == 64321 || GetId() == 62619)
+    {
+        if (apply)
+            HandleAuraModPacifyAndSilence(false, true);
+        else
+        {
+            if (GetId() == 64321 && m_removeMode == AURA_REMOVE_BY_EXPIRE || GetId() == 62619)
+            {
+                if (GetTarget()->HasAura(62532, EFFECT_INDEX_0))
+                    HandleAuraModPacifyAndSilence(true, true);
+            }
+        }
+    }
 }
 
 void Aura::HandleModMechanicImmunityMask(bool apply, bool /*Real*/)
@@ -7023,6 +7085,13 @@ void Aura::HandleAuraModPacify(bool apply, bool /*Real*/)
 
 void Aura::HandleAuraModPacifyAndSilence(bool apply, bool Real)
 {
+    // Conservator's Grip (Freya)
+    if (GetId() == 62532)
+    {
+        if (GetTarget()->HasAura(64321, EFFECT_INDEX_0) || GetTarget()->HasAura(62619, EFFECT_INDEX_0))
+            return;
+    }
+
     HandleAuraModPacify(apply, Real);
     HandleAuraModSilence(apply, Real);
 }
@@ -8189,8 +8258,6 @@ void Aura::PeriodicDummyTick()
 //              case 46549: break;
 //              // Summon Ice Spear Knockback Delayer
 //              case 46878: break;
-//              // Burninate Effect
-//              case 47214: break;
 //              // Fizzcrank Practice Parachute
 //              case 47228: break;
 //              // Send Mug Control Aura
@@ -8226,6 +8293,27 @@ void Aura::PeriodicDummyTick()
 //              case 50493: break;
 //              // Love Rocket Barrage
 //              case 50530: break;
+                case 47214: // Burninate Effect
+                {
+                    Unit * caster = GetCaster();
+                    if (!caster)
+                        return;
+
+                    if (target->GetEntry() == 26570)
+                    {
+                        if (target->HasAura(54683, EFFECT_INDEX_0))
+                            return;
+                        else
+                        {
+                            // Credit Scourge
+                            caster->CastSpell(caster, 47208, true);
+                            // set ablaze
+                            target->CastSpell(target, 54683, true);
+                            ((Creature*)target)->ForcedDespawn(4000);
+                        }
+                    }
+                    break;
+                }
                 case 50789:                                 // Summon iron dwarf (left or right)
                 case 59860:
                     target->CastSpell(target, roll_chance_i(50) ? 50790 : 50791, true, NULL, this);
@@ -8241,6 +8329,41 @@ void Aura::PeriodicDummyTick()
                 case 50824:                                 // Summon earthen dwarf
                     target->CastSpell(target, roll_chance_i(50) ? 50825 : 50826, true, NULL, this);
                     return;
+                case 62038: // Biting Cold (Ulduar: Hodir)
+                {
+                    if (target->GetTypeId() != TYPEID_PLAYER)
+                        return;
+
+                    // aura stack increase every 3 (data in m_miscvalue) seconds and decrease every 1s
+                    SpellAuraHolder *holder = target->GetSpellAuraHolder(62039);
+                     // dmg dealing every second
+                    target->CastSpell(target, 62188, true);
+
+                    // Reset reapply counter at move and decrease stack amount by 1
+                    if (((Player*)target)->isMoving())
+                    {
+                        if (holder)
+                        {
+                            if (holder->ModStackAmount(-1))
+                                target->RemoveAurasDueToSpell(62039);
+                        }
+                        m_modifier.m_miscvalue = 3;
+                        return;
+                    }
+                    // We are standing at the moment, countdown
+                    if (m_modifier.m_miscvalue > 0)
+                    {
+                        --m_modifier.m_miscvalue;
+                        return;
+                    }
+
+                    target->CastSpell(target, 62039, true);
+                    target->CastSpell(target, 62188, true);
+
+                    // recast every ~3 seconds
+                    m_modifier.m_miscvalue = 3;
+                    return;
+                }
                 case 52441:                                 // Cool Down
                     target->CastSpell(target, 52443, true);
                     return;
@@ -9369,6 +9492,16 @@ void SpellAuraHolder::SetStackAmount(uint32 stackAmount)
                     aur->ApplyModifier(false, true);
                     aur->GetModifier()->m_amount = amount;
                     aur->ApplyModifier(true, true);
+                   /* // change duration if aura refreshes
+                    if (refresh)
+                    {
+                        // new duration based on combo points
+                        if (GetSpellDuration(aur->GetSpellProto()) != GetSpellMaxDuration(aur->GetSpellProto()))
+                        {
+                            if (Unit *caster = aur->GetCaster())
+                                aur->SetAuraMaxDuration(caster->CalculateBaseSpellDuration(aur->GetSpellProto(), &aur->GetModifier()->periodictime));
+                        }
+                    }*/ 
                 }
             }
         }

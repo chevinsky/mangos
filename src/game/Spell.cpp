@@ -850,6 +850,9 @@ void Spell::prepareDataForTriggerSystem()
                 // Living Bomb - can trigger Hot Streak
                 else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x1000000000000))
                     m_canTrigger = true;
+                // Fingers of Frost: triggered by Frost/Ice Armor
+                else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000100000))
+                    m_canTrigger = true;
                 break;
             case SPELLFAMILY_WARLOCK:
                 // For Hellfire Effect / Rain of Fire / Seed of Corruption triggers need do it
@@ -1229,8 +1232,38 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
         }
         // Add bonuses and fill damageInfo struct
         else
-            caster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, m_attackType);
+        {
+            // Chain Lightning - spell coeff bonus based on jump
+            float chainJumpCoeff = 1.0f;
 
+            if (m_caster->GetTypeId() == TYPEID_PLAYER)
+            {
+                for (uint8 i = 0; i < MAX_EFFECT_INDEX; i++)
+                {
+                    if (m_spellInfo->EffectChainTarget[SpellEffectIndex(i)])
+                    {
+                        uint8 chainTarget = 0;
+
+                        //for(Unit::SpellAuraHolderMap::const_iterator itr = auras.begin(); itr!=auras.end(); ++itr)
+                        for(TargetList::const_iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
+                        {
+                            chainTarget++;
+                            if (ihit->targetGUID == unitTarget->GetObjectGuid() && ihit->effectMask & (1<<i))
+                            {
+                                if (chainTarget == 2)
+                                    chainJumpCoeff = 0.7f;
+                                else if (chainTarget == 3)
+                                    chainJumpCoeff = 0.49f;
+                                else if (chainTarget == 4) // with the glyph
+                                    chainJumpCoeff = 0.34f;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            caster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, m_attackType, chainJumpCoeff);
+        }
         unitTarget->CalculateAbsorbResistBlock(caster, &damageInfo, m_spellInfo);
 
         caster->DealDamageMods(damageInfo.target, damageInfo.damage, &damageInfo.absorb);
@@ -1754,6 +1787,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 28542:                                 // Life Drain
                 case 66013:                                 // Penetrating Cold (10 man)
                 case 68509:                                 // Penetrating Cold (10 man heroic)
+                case 62476:                                 // Icicle (Hodir 10man)
                     unMaxTargets = 2;
                     break;
                 case 28796:                                 // Poison Bolt Volley
@@ -1764,6 +1798,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 54522:
                 case 61693:                                 // Arcane Storm (Malygos)
                 case 60936:                                 // Surge of Power (h) (Malygos)
+                case 62477:                                 // Icicle (Hodir 25man)
                     unMaxTargets = 3;
                     break;
                 case 61916:                                 // Lightning Whirl (Stormcaller Brundir - Ulduar)
@@ -2161,7 +2196,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             }
 
             // Focused Eyebeam (Kologarn)
-            else if (m_spellInfo->Id == 63342)
+            else if (m_spellInfo->Id == 63342 ||                         // Focused Eyebeam (Kologarn)
+                m_spellInfo->Id == 62166 || m_spellInfo->Id == 63981)    // Stone Grip (Kologarn)
             {
                 targetUnitMap.clear();
                 if (m_targets.getUnitTarget())
@@ -2170,6 +2206,14 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     return;
                 }
                 else
+                    unMaxTargets = 1;
+            }
+            // Solar Flare (Freya's elder)
+            else if (m_spellInfo->Id == 62240 || m_spellInfo->Id == 62920)
+            {
+                if (SpellAuraHolder *holder = m_caster->GetSpellAuraHolder(62239))
+                    unMaxTargets = holder->GetStackAmount();
+                else 
                     unMaxTargets = 1;
             }
             break;
@@ -2681,8 +2725,24 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             {
                 FillRaidOrPartyHealthPriorityTargets(targetUnitMap, m_caster, m_caster, radius, 1, true, false, false);
             }
+            // Gravity Bomb, Searing Light
+            else if (m_spellInfo->SpellIconID == 3757 || m_spellInfo->SpellIconID == 3021)
+            {
+               // targets are checked with original caster, which is in fact hostile, not friendly
+                if (Unit *pTarget = m_targets.getUnitTarget())
+                {
+                    FillAreaTargets(targetUnitMap, pTarget->GetPositionX(), pTarget->GetPositionY(), radius, PUSH_TARGET_CENTER, SPELL_TARGETS_FRIENDLY, pTarget);
+                    targetUnitMap.remove(pTarget); // the target of aura triggering this spell
+                    return;
+                }
+            }
             else
+            {
                 FillAreaTargets(targetUnitMap, m_targets.m_destX, m_targets.m_destY, radius, PUSH_DEST_CENTER, SPELL_TARGETS_FRIENDLY);
+                
+                if (m_spellInfo->Id == 27820) // Detonate Mana
+                    targetUnitMap.remove(m_caster);
+            }
             break;
         // TARGET_SINGLE_PARTY means that the spells can only be casted on a party member and not on the caster (some seals, fire shield from imp, etc..)
         case TARGET_SINGLE_PARTY:
@@ -3274,6 +3334,32 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                         case SPELL_AURA_MOD_DAMAGE_DONE:
                             targetUnitMap.push_back(m_caster);
                             break;
+                        case SPELL_AURA_DUMMY:
+                        {
+                                SetTargetMap(effIndex, m_spellInfo->EffectImplicitTargetB[effIndex], targetUnitMap);
+                                return;
+                        }
+                        case SPELL_AURA_PERIODIC_DAMAGE:
+                        {
+                            switch (m_spellInfo->Id)
+                            {
+                                case 63024: // Gravity Bomb (XT-002)
+                                case 64234: // Gravity Bomb (h) (XT-002)
+                                case 63018: // Searing Light (XT-002)
+                                case 65121: // Searing Light (h) (XT-002)
+                                {
+                                    if (Unit *pTarget = m_targets.getUnitTarget())
+                                    {
+                                        targetUnitMap.clear();
+                                        targetUnitMap.push_back(pTarget);
+                                        return;
+                                    }
+                                }
+                                default:
+                                    break;
+                            }
+                            break;
+                        }
                         default:                            // apply to target in other case
                             if (m_targets.getUnitTarget())
                                 targetUnitMap.push_back(m_targets.getUnitTarget());
@@ -3299,6 +3385,17 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     break;
             }
             break;
+        }
+        case TARGET_UNK_92:
+        {
+            if (Unit *unitTarget = m_targets.getUnitTarget())
+            targetUnitMap.push_back(unitTarget);
+            else
+            {
+                if (Unit *creator = m_caster->GetMap()->GetUnit(m_caster->GetCreatorGuid()))
+                targetUnitMap.push_back(creator);
+             }
+             break;
         }
         default:
             //sLog.outError( "SPELL: Unknown implicit target (%u) for spell ID %u", targetMode, m_spellInfo->Id );
@@ -3574,6 +3671,9 @@ void Spell::cast(bool skipCheck)
                 AddTriggeredSpell(74610);                  // Fiery combustion
             else if (m_spellInfo->Id == 74799)
                 AddTriggeredSpell(74800);                  // Soul consumption
+            // Flash Freeze (Hodir: Ulduar)
+            else if (m_spellInfo->Id == 61968)
+                AddTriggeredSpell(62148);                   // visual effect
             break;
         }
         case SPELLFAMILY_MAGE:
@@ -6041,6 +6141,19 @@ SpellCastResult Spell::CheckCast(bool strict)
             case SPELL_EFFECT_LEAP:
             case SPELL_EFFECT_TELEPORT_UNITS_FACE_CASTER:
             {
+                float dis = GetSpellRadius(sSpellRadiusStore.LookupEntry(m_spellInfo->EffectRadiusIndex[i]));
+                float fx = m_caster->GetPositionX() + dis * cos(m_caster->GetOrientation());
+                float fy = m_caster->GetPositionY() + dis * sin(m_caster->GetOrientation());
+                // teleport a bit above terrain level to avoid falling below it
+                float fz = m_caster->GetTerrain()->GetHeight(fx, fy, m_caster->GetPositionZ(), true);
+                if(fz <= INVALID_HEIGHT)                    // note: this also will prevent use effect in instances without vmaps height enabled
+                    return SPELL_FAILED_TRY_AGAIN;
+
+                float caster_pos_z = m_caster->GetPositionZ();
+                // Control the caster to not climb or drop when +-fz > 8
+                if(!(fz <= caster_pos_z + 8 && fz >= caster_pos_z - 8))
+                    return SPELL_FAILED_TRY_AGAIN;
+
                 // not allow use this effect at battleground until battleground start
                 if(m_caster->GetTypeId() == TYPEID_PLAYER)
                 {
