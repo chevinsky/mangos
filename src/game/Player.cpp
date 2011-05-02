@@ -2807,6 +2807,7 @@ void Player::UpdateFreeTalentPoints(bool resetIfNeed)
         else
             SetFreeTalentPoints(talentPointsForLevel-m_usedTalentCount);
     }
+    ResetTalentsCount();
 }
 
 void Player::InitTalentForLevel()
@@ -11434,6 +11435,7 @@ Item* Player::StoreNewItem(ItemPosCountVec const& dest, uint32 item, bool update
     Item *pItem = Item::CreateItem( item, count, this );
     if( pItem )
     {
+        ResetEquipGearScore();
         ItemAddedQuestCheck( item, count );
         GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_RECEIVE_EPIC_ITEM, item, count);
         if(randomPropertyId)
@@ -11595,6 +11597,7 @@ Item* Player::EquipNewItem( uint16 pos, uint32 item, bool update )
 {
     if (Item *pItem = Item::CreateItem( item, 1, this ))
     {
+        ResetEquipGearScore();
         ItemAddedQuestCheck( item, 1 );
         GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_RECEIVE_EPIC_ITEM, item, 1);
         return EquipItem( pos, pItem, update );
@@ -23886,6 +23889,9 @@ AreaLockStatus Player::GetAreaLockStatus(uint32 mapId, Difficulty difficulty)
 
 uint32 Player::GetEquipGearScore(bool withBags, bool withBank)
 {
+    if (m_cachedGS > 0)
+        return m_cachedGS;
+
     GearScoreMap gearScore (MAX_INVTYPE);
 
     for (uint8 i = INVTYPE_NON_EQUIP; i < MAX_INVTYPE; ++i)
@@ -23955,7 +23961,10 @@ uint32 Player::GetEquipGearScore(bool withBags, bool withBank)
     if (count)
     {
         DEBUG_LOG("Player: calculating gear score for %u. Result is %u",GetObjectGuid().GetCounter(), uint32( summ / count ));
-        return uint32( summ / count );
+
+        m_cachedGS = uint32( summ / count );
+
+        return m_cachedGS;
     }
     else return 0;
 }
@@ -24024,6 +24033,9 @@ uint8 Player::GetTalentsCount(uint8 tab)
     if (tab >2)
         return 0;
 
+    if (m_cachedTC[tab] > 0)
+        return m_cachedTC[tab];
+
     uint8 talentCount = 0;
 
     uint32 const* talentTabIds = GetTalentTabPages(getClass());
@@ -24043,5 +24055,6 @@ uint8 Player::GetTalentsCount(uint8 tab)
 
         talentCount += talent.currentRank + 1;
     }
+    m_cachedTC[tab] = talentCount;
     return talentCount;
 }
