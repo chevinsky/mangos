@@ -40,6 +40,7 @@ void LFGPlayerState::Clear()
     m_DungeonsList.clear();
     m_LockMap.clear();
     m_comment.clear();
+    accept = LFG_ANSWER_PENDING;
 }
 
 LFGLockStatusMap* LFGPlayerState::GetLockMap()
@@ -101,13 +102,15 @@ void LFGGroupState::Clear()
     update = true;
     status = LFG_STATUS_NOT_SAVED;
     dungeonEntry = 0;
-    kicks = 0;
+    m_votesNeeded = 3;
+    m_kicksLeft = 5;
     kickActive = false;
     m_DungeonsList.clear();
     m_flags = LFG_MEMBER_FLAG_NONE |
               LFG_MEMBER_FLAG_COMMENT |
               LFG_MEMBER_FLAG_ROLES |
               LFG_MEMBER_FLAG_BIND;
+    m_proposal = NULL;
 }
 
 uint8 LFGGroupState::GetRoles(LFGRoles role)
@@ -122,3 +125,13 @@ uint8 LFGGroupState::GetRoles(LFGRoles role)
     }
     return count;
 };
+
+uint8 LFGGroupState::GetVotesNeeded() const
+{
+    return m_votesNeeded;
+}
+
+uint8 LFGGroupState::GetKicksLeft() const
+{
+    return m_kicksLeft;
+}

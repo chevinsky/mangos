@@ -267,6 +267,8 @@ BattleGround::BattleGround()
     m_PrematureCountDown = false;
     m_PrematureCountDownTimer = 0;
 
+    m_ArenaEnded = false;
+
     m_StartDelayTimes[BG_STARTING_EVENT_FIRST]  = BG_START_DELAY_2M;
     m_StartDelayTimes[BG_STARTING_EVENT_SECOND] = BG_START_DELAY_1M;
     m_StartDelayTimes[BG_STARTING_EVENT_THIRD]  = BG_START_DELAY_30S;
@@ -505,6 +507,24 @@ void BattleGround::Update(uint32 diff)
         }
     }
 
+    // Arena time limit
+    if(isArena() && !m_ArenaEnded)
+    {
+        if(m_StartTime > uint32(ARENA_TIME_LIMIT))
+        {
+            Team winner;
+            // winner is team with higher damage
+            if(GetDamageDoneForTeam(ALLIANCE) > GetDamageDoneForTeam(HORDE))
+                winner = ALLIANCE;
+            else if (GetDamageDoneForTeam(HORDE) > GetDamageDoneForTeam(ALLIANCE))
+                winner = HORDE;
+            else
+                winner = TEAM_NONE;
+           EndBattleGround(winner);
+           m_ArenaEnded = true;
+        }
+    }
+
     //update start time
     m_StartTime += diff;
 }
@@ -516,6 +536,22 @@ void BattleGround::SetTeamStartLoc(Team team, float X, float Y, float Z, float O
     m_TeamStartLocY[teamIdx] = Y;
     m_TeamStartLocZ[teamIdx] = Z;
     m_TeamStartLocO[teamIdx] = O;
+}
+
+uint32 BattleGround::GetDamageDoneForTeam(Team team)
+{
+    uint32 finaldamage = 0;
+    for(BattleGroundPlayerMap::iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
+    {
+        Team bgTeam = itr->second.PlayerTeam;
+        Player *plr = sObjectMgr.GetPlayer(itr->first);
+        if (!plr)
+            continue;
+        if(!bgTeam) bgTeam = plr->GetTeam();
+        if(bgTeam == team)
+            finaldamage += GetPlayerScore(plr, SCORE_DAMAGE_DONE);
+    }
+    return finaldamage;
 }
 
 void BattleGround::SendPacketToAll(WorldPacket *packet)
@@ -1318,6 +1354,11 @@ void BattleGround::AddPlayer(Player *plr)
 
     plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
     plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_DAMAGE_DONE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS);
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL);
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL);
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA);
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE);
 
     // setup BG group membership
     PlayerAddedToBGCheckIfBGIsRunning(plr);
@@ -1325,6 +1366,28 @@ void BattleGround::AddPlayer(Player *plr)
 
     // Log
     DETAIL_LOG("BATTLEGROUND: Player %s joined the battle.", plr->GetName());
+}
+
+uint32 BattleGround::GetPlayerScore(Player *Source, uint32 type)
+{
+    BattleGroundScoreMap::const_iterator itr = m_PlayerScores.find(Source->GetGUID());
+    if(itr == m_PlayerScores.end()) // player not found...
+        return 0;
+
+    switch(type)
+    {
+        case SCORE_KILLING_BLOWS: // Killing blows
+            return itr->second->KillingBlows;
+        case SCORE_DEATHS: // Deaths
+            return itr->second->Deaths;
+        case SCORE_DAMAGE_DONE: // Damage Done
+            return itr->second->DamageDone;
+        case SCORE_HEALING_DONE: // Healing Done
+            return itr->second->HealingDone;
+        default:
+            sLog.outError("BattleGround: Unknown player score type %u", type);
+            return 0;
+    }
 }
 
 /* this method adds player to his team's bg group, or sets his correct group if player is already in bg group */
@@ -1827,6 +1890,9 @@ void BattleGround::HandleKillPlayer( Player *player, Player *killer )
     {
         UpdatePlayerScore(killer, SCORE_HONORABLE_KILLS, 1);
         UpdatePlayerScore(killer, SCORE_KILLING_BLOWS, 1);
+        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS,1);
+        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL,1);
+        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA,1);
 
         for(BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
         {

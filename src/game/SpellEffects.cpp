@@ -359,6 +359,16 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                         damage+= uint32(m_caster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.12f);
                         break;
                     }
+                    case 28375: // Decimate (Gluth encounter)
+                    {
+                        // leave only 5% HP
+                        if (unitTarget)
+                        {
+                            // damage of this spell is very odd so we're setting HP manually
+                            damage = 0;
+                            unitTarget->SetHealthPercent(5.0f);
+                        }
+                    }
                     // percent max target health
                     case 29142:                             // Eyesore Blaster
                     case 35139:                             // Throw Boom's Doom
@@ -416,6 +426,17 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
 
                         unitTarget->SetOrientation(m_caster->GetOrientation()+M_PI_F);
                         unitTarget->CastSpell(unitTarget, 60241, true);
+                        break;
+                    }
+                    // Biting Cold
+                    case 62188:
+                    {
+                        if (!unitTarget)
+                            return;
+
+                        // 200 * 2 ^ stack_amount
+                        SpellAuraHolder *holder = unitTarget->GetSpellAuraHolder(62039);
+                        damage = 200 * int32(pow(2.0f, (holder ? float(holder->GetStackAmount()) : 0)));
                         break;
                     }
                     // Tympanic Tantrum
@@ -1131,6 +1152,17 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     m_caster->CastSpell(m_caster, spell_id, true, NULL);
                     return;
                 }
+                case 17950:                                 // Shadow Portal
+                {
+                    if (!unitTarget)
+                        return;
+
+                    // Shadow Portal
+                    const uint32 spell_list[6] = {17863, 17939, 17943, 17944, 17946, 17948};
+
+                    m_caster->CastSpell(unitTarget, spell_list[urand(0, 5)], true);
+                    return;
+                }
                 case 19411:                                 // Lava Bomb
                 case 20474:                                 // Lava Bomb
                 {
@@ -1651,6 +1683,11 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(m_caster, 45456, true);
 
                     break;
+                }
+                case 45958:                                 // Signal Alliance
+                {
+                    m_caster->CastSpell(m_caster, m_spellInfo->CalculateSimpleValue(eff_idx), true);
+                    return;
                 }
                 case 45692:                                 // Use Tuskarr Torch (for Quest: Burn in Effigy)
                 {
@@ -2329,6 +2366,14 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     else                                    // Knocked Up   - backfire 5%
                         m_caster->CastSpell(m_caster, 46014, true, m_CastItem);
 
+                    if (m_caster->GetTypeId() == TYPEID_PLAYER)
+                    {
+                        Player* pPlayer = ((Player*)m_caster);
+                        // Nitro Boosts - drop BG flag
+                        if(pPlayer->InBattleGround() && (pPlayer->HasAura(23335) || pPlayer->HasAura(23333) || pPlayer->HasAura(34976)))
+                        if(BattleGround *bg = pPlayer->GetBattleGround())
+                        bg->EventPlayerDroppedFlag(pPlayer);
+                    }
                     return;
                 }
                 case 55818:                                 // Hurl Boulder
@@ -4309,7 +4354,7 @@ void Spell::DoCreateItem(SpellEffectIndex eff_idx, uint32 itemtype)
     // can the player store the new item?
     ItemPosCountVec dest;
     uint32 no_space = 0;
-    uint8 msg = player->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, newitemid, num_to_add, &no_space );
+    InventoryResult msg = player->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, newitemid, num_to_add, &no_space );
     if( msg != EQUIP_ERR_OK )
     {
         // convert to possible store amount
@@ -4462,7 +4507,6 @@ void Spell::EffectEnergize(SpellEffectIndex eff_idx)
         case 63375:                                         // Improved Stormstrike
         case 67545:                                         // Empowered Fire
         case 68082:                                         // Glyph of Seal of Command
-        case 71132:                                         // Glyph of Shadow Word: Pain
             damage = damage * unitTarget->GetCreateMana() / 100;
             break;
         case 67487:                                         // Mana Potion Injector
@@ -6786,22 +6830,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(unitTarget, roll_chance_i(50) ? 24714 : 24715, true);
                     return;
                 }
-                case 26275:                                 // PX-238 Winter Wondervolt TRAP
-                {
-                    uint32 spells[4] = { 26272, 26157, 26273, 26274 };
-
-                    // check presence
-                    for(int j = 0; j < 4; ++j)
-                        if (unitTarget->HasAura(spells[j], EFFECT_INDEX_0))
-                            return;
-
-                    // select spell
-                    uint32 iTmpSpellId = spells[urand(0,3)];
-
-                    // cast
-                    unitTarget->CastSpell(unitTarget, iTmpSpellId, true);
-                    return;
-                }
                 case 25140:                                 // Orb teleport spells
                 case 25143:
                 case 25650:
@@ -6850,6 +6878,19 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     m_caster->CastSpell(unitTarget, spells[urand(0, 2)], true);
                     return;
                 }
+                case 26275:                                 // PX-238 Winter Wondervolt TRAP
+                {
+                    uint32 spells[4] = {26272, 26157, 26273, 26274};
+
+                    // check presence
+                    for(int j = 0; j < 4; ++j)
+                        if(unitTarget->HasAura(spells[j], EFFECT_INDEX_0))
+                            return;
+
+                    // cast
+                    unitTarget->CastSpell(unitTarget, spells[urand(0,3)], true);
+                    return;
+                }
                 case 26465:                                 // Mercurial Shield - need remove one 26464 Mercurial Shield aura
                     unitTarget->RemoveAuraHolderFromStack(26464);
                     return;
@@ -6895,6 +6936,15 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         DoCreateItem(eff_idx,item);
                     break;
                 }
+                case 28374:                                 // Decimate (Gluth encounter)
+                {
+                    if (unitTarget && unitTarget != m_caster)
+                    {
+                        if (unitTarget->GetHealthPercent() > 5.0f)
+                            m_caster->CastSpell(unitTarget, 28375, true);
+                    }
+                    break;
+                }
                 case 29830:                                 // Mirren's Drinking Hat
                 {
                     uint32 item = 0;
@@ -6924,6 +6974,14 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     // Removes snares and roots.
                     unitTarget->RemoveAurasAtMechanicImmunity(IMMUNE_TO_ROOT_AND_SNARE_MASK,30918,true);
                     break;
+                }
+                case 38358:                                 // Tidal Surge
+                {
+                    if (!unitTarget)
+                        return;
+
+                    unitTarget->CastSpell(unitTarget, 38353, true, NULL, NULL, m_caster->GetObjectGuid());
+                    return;
                 }
                 case 39681:                                 // Summon Goblin Tonk
                 {
@@ -7204,6 +7262,15 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     m_caster->SetDisplayId(display_id);
                     return;
+                }
+                case 45958:                                 // Signal Alliance
+                {
+                    // "escort" aura not present, so let nothing happen
+                    if (!m_caster->HasAura(m_spellInfo->CalculateSimpleValue(eff_idx)))
+                        return;
+                    // "escort" aura is present so break; and let DB table spell_scripts be used and process further.
+                    else
+                        break;
                 }
                 case 46203:                                 // Goblin Weather Machine
                 {

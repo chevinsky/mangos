@@ -971,6 +971,15 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     if (triggeredByAura->GetStackAmount() > 1 && !triggeredByAura->GetHolder()->ModStackAmount(-1))
                         return SPELL_AURA_PROC_CANT_TRIGGER;
                 }
+                // Petrified Bark
+                case 62337:
+                 {
+                     triggered_spell_id = 62379;
+                     basepoints[0] = damage;
+                    // this == pVictim, why? :/ temp. workaround
+                    target = SelectRandomUnfriendlyTarget(getVictim());
+                    break;
+                 }
                 // Glyph of Life Tap
                 case 63320:
                     triggered_spell_id = 63321;
@@ -992,6 +1001,31 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     if (basepoints[0] < 0)
                         return SPELL_AURA_PROC_FAILED;
                     break;
+                case 71169:
+                {
+                    // Shadow's Fate
+                    if (GetTypeId() != TYPEID_UNIT)
+                        return SPELL_AURA_PROC_FAILED;
+                    switch (((Creature*)this)->GetCreatureInfo()->Entry)
+                    {
+                        case 38431:  // Puthricide 25
+                        case 38586:
+                            CastSpell(this, 71518, true);
+                            break;
+                        case 38434:  // Lanathel 25
+                        case 38436:
+                            CastSpell(this, 72934, true);
+                            break;
+                        case 38265:  // Sindragosa 25
+                        case 38267:
+                            CastSpell(this, 72289, true);
+                            break;
+                        default:
+                            break;
+                    }
+                    CastSpell(triggeredByAura->GetCaster(), 71203, true);
+                    return SPELL_AURA_PROC_OK;
+                }
                 // Item - Shadowmourne Legendary
                 case 71903:
                 {

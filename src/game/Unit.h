@@ -270,8 +270,7 @@ class Item;
 class Pet;
 class PetAura;
 class Totem;
-class Transport;
-class VehicleKit;
+class VehicleInfo;
 
 struct SpellImmune
 {
@@ -1138,6 +1137,7 @@ typedef std::set<ObjectGuid> GroupPetList;
 #define REGEN_TIME_PRECISE  500                             // Used in Spell::CheckPower for precise regeneration in spell cast time
 
 struct SpellProcEventEntry;                                 // used only privately
+class  VehicleKit;
 
 class MANGOS_DLL_SPEC Unit : public WorldObject
 {
@@ -1326,6 +1326,10 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void Mount(uint32 mount, uint32 spellId = 0, uint32 vehicleId = 0, uint32 creatureEntry = 0);
         void Unmount(bool from_aura = false);
 
+        VehicleInfo* GetVehicleInfo() { return m_vehicleInfo; }
+        bool IsVehicle() const { return m_vehicleInfo != NULL; }
+        void SetVehicleId(uint32 entry);
+
         uint16 GetMaxSkillValueForLevel(Unit const* target = NULL) const { return (target ? GetLevelForTarget(target) : getLevel()) * 5; }
         void DealDamageMods(Unit *pVictim, uint32 &damage, uint32* absorb);
         uint32 DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDamage, DamageEffectType damagetype, SpellSchoolMask damageSchoolMask, SpellEntry const *spellProto, bool durabilityLoss);
@@ -1348,7 +1352,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         bool IsAllowedDamageInArea(Unit * pVictim) const;
 
-        void CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, SpellEntry const *spellInfo, WeaponAttackType attackType = BASE_ATTACK);
+        void CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, SpellEntry const *spellInfo, WeaponAttackType attackType = BASE_ATTACK, float targetSpellCoeff = 1.0f);
         void DealSpellDamage(SpellNonMeleeDamage *damageInfo, bool durabilityLoss);
 
         // player or player's pet resilience (-1%)
@@ -1857,7 +1861,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         int32 SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int32 benefit, int32 ap_benefit, DamageEffectType damagetype, bool donePart, float defCoeffMod = 1.0f);
         int32 SpellBaseDamageBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask);
-        uint32 SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
+        uint32 SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1, float targetSpellCoeff = 1.0f);
         uint32 SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
         int32 SpellBaseHealingBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseHealingBonusTaken(SpellSchoolMask schoolMask);
@@ -2033,7 +2037,6 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void ChangeSeat(int8 seatId, bool next = true);
         VehicleKit* GetVehicle() const { return m_pVehicle; }
         VehicleKit* GetVehicleKit() const { return m_pVehicleKit; }
-        bool CreateVehicleKit(uint32 vehicleId);
         void RemoveVehicleKit();
 
         void ScheduleAINotify(uint32 delay);
@@ -2102,8 +2105,9 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         // Transports
         Transport* m_transport;
 
-        VehicleKit* m_pVehicle;
-        VehicleKit* m_pVehicleKit;
+        VehicleInfo* m_vehicleInfo;
+        VehicleKit*  m_pVehicleKit;
+        VehicleKit*  m_pVehicle;
 
     private:
         void CleanupDeletedAuras();

@@ -39,6 +39,7 @@
 #include "Pet.h"
 #include "Util.h"
 #include "Totem.h"
+#include "Vehicle.h"
 #include "BattleGround.h"
 #include "InstanceData.h"
 #include "MapPersistentStateMgr.h"
@@ -183,8 +184,10 @@ void GlobalCooldownMgr::CancelGlobalCooldown(SpellEntry const* spellInfo)
 ////////////////////////////////////////////////////////////
 // Methods of class Unit
 
-Unit::Unit()
-: WorldObject(), i_motionMaster(this), m_ThreatManager(this), m_HostileRefManager(this)
+Unit::Unit() :
+    i_motionMaster(this), m_ThreatManager(this), m_HostileRefManager(this),
+    m_charmInfo(NULL),
+    m_vehicleInfo(NULL)
 {
     m_objectType |= TYPEMASK_UNIT;
     m_objectTypeId = TYPEID_UNIT;
@@ -272,8 +275,8 @@ Unit::Unit()
 
     m_transport = NULL;
 
-    m_pVehicle = NULL;
     m_pVehicleKit = NULL;
+    m_pVehicle    = NULL;
 
     m_comboPoints = 0;
 
@@ -297,8 +300,8 @@ Unit::~Unit()
         }
     }
 
-    if (m_charmInfo)
-        delete m_charmInfo;
+    delete m_charmInfo;
+    delete m_vehicleInfo;
 
     // those should be already removed at "RemoveFromWorld()" call
     MANGOS_ASSERT(m_gameObj.size() == 0);
@@ -1206,7 +1209,12 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
                             if(spell->m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_ABORT_ON_DMG)
                                 pVictim->InterruptSpell(CurrentSpellTypes(i));
                             else
-                                spell->Delayed();
+                                {
+                                // some spells should be considered as DoT, but are triggered spells
+                                // TODO: needs some research, maybe attribute SPELL_ATTR_EX3_UNK25
+                                if (spellProto && spellProto->Id != 62188) // Biting Cold (Hodir) exception
+                                    spell->Delayed();
+                            }
                         }
                     }
                 }
@@ -1463,7 +1471,7 @@ uint32 Unit::SpellNonMeleeDamageLog(Unit *pVictim, uint32 spellID, uint32 damage
     return damageInfo.damage;
 }
 
-void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, SpellEntry const *spellInfo, WeaponAttackType attackType)
+void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, SpellEntry const *spellInfo, WeaponAttackType attackType, float targetSpellCoeff)
 {
     SpellSchoolMask damageSchoolMask = damageInfo->schoolMask;
     Unit *pVictim = damageInfo->target;
@@ -1509,7 +1517,7 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, S
         case SPELL_DAMAGE_CLASS_MAGIC:
         {
             // Calculate damage bonus
-            damage = SpellDamageBonusDone(pVictim, spellInfo, damage, SPELL_DIRECT_DAMAGE);
+            damage = SpellDamageBonusDone(pVictim, spellInfo, damage, SPELL_DIRECT_DAMAGE, 1, targetSpellCoeff);
             damage = pVictim->SpellDamageBonusTaken(this, spellInfo, damage, SPELL_DIRECT_DAMAGE);
 
             // If crit add critical bonus
@@ -3448,6 +3456,9 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     {
         int32 deflect_chance = pVictim->GetTotalAuraModifier(SPELL_AURA_DEFLECT_SPELLS)*100;
         tmp+=deflect_chance;
+        // Chaos Bolt cannot be deflected
+        if (spell->SpellFamilyName == SPELLFAMILY_WARLOCK && spell->SpellIconID == 3178)
+            return SPELL_MISS_NONE;
         if (rand < tmp)
             return SPELL_MISS_DEFLECT;
     }
@@ -5800,6 +5811,9 @@ bool Unit::IsHostileTo(Unit const* unit) const
 
 bool Unit::IsFriendlyTo(Unit const* unit) const
 {
+    if (!unit)
+        return true;
+
     // always friendly to self
     if(unit==this)
         return true;
@@ -6633,7 +6647,7 @@ int32 Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int3
  * Calculates caster part of spell damage bonuses,
  * also includes different bonuses dependent from target auras
  */
-uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack)
+uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack, float targetSpellCoeff)
 {
     if(!spellProto || !pVictim || damagetype==DIRECT_DAMAGE || spellProto->AttributesEx6 & SPELL_ATTR_EX6_NO_DMG_MODS)
         return pdamage;
@@ -6992,7 +7006,7 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
     int32 DoneAdvertisedBenefit = SpellBaseDamageBonusDone(GetSpellSchoolMask(spellProto));
 
     // apply ap bonus and benefit affected by spell power implicit coeffs and spell level penalties
-    DoneTotal = SpellBonusWithCoeffs(spellProto, DoneTotal, DoneAdvertisedBenefit, 0, damagetype, true);
+    DoneTotal = SpellBonusWithCoeffs(spellProto, DoneTotal, DoneAdvertisedBenefit, 0, damagetype, true, targetSpellCoeff);
 
     float tmpDamage = (int32(pdamage) + DoneTotal * int32(stack)) * DoneTotalMod;
     // apply spellmod to Done damage (flat and pct)
@@ -7066,6 +7080,27 @@ uint32 Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
 
     // Mod damage from spell mechanic
     TakenTotalMod *= GetTotalAuraMultiplierByMiscValueForMask(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT,GetAllSpellMechanicMask(spellProto));
+
+    // Hack probably: these modifiers should be applied in a way that above functions would include their effects.
+    // Crypt Fever / Ebon Plaguebringer - increased diseases dmg
+    if (spellProto->Dispel == DISPEL_DISEASE)
+    {
+        Unit::AuraList const& scriptAuras = GetAurasByType(SPELL_AURA_LINKED);
+        for(Unit::AuraList::const_iterator i = scriptAuras.begin(); i != scriptAuras.end(); ++i)
+        {
+            if ((*i)->GetSpellProto()->SpellIconID == 264 || // Crypt Fever
+                (*i)->GetSpellProto()->SpellIconID == 1933) // Ebon Plaguebringer
+                TakenTotalMod *= ((*i)->GetModifier()->m_amount + 100.0f) / 100.0f;
+        }
+    }
+    // Ebon Plaguebringer - increased spell damage taken
+    if (schoolMask & SPELL_SCHOOL_MASK_MAGIC)
+    {
+        Unit::AuraList const& dummyAuras = GetAurasByType(SPELL_AURA_DUMMY);
+        for(Unit::AuraList::const_iterator i = dummyAuras.begin(); i != dummyAuras.end(); ++i)
+            if ((*i)->GetSpellProto()->SpellIconID == 1933)
+                TakenTotalMod *= ((*i)->GetModifier()->m_amount + 100.0f) / 100.0f;
+    }
 
     // Mod damage taken from AoE spells
     if(IsAreaOfEffectSpell(spellProto))
@@ -7315,7 +7350,7 @@ bool Unit::IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
         case SPELL_DAMAGE_CLASS_RANGED:
         {
             if (pVictim)
-                crit_chance = GetUnitCriticalChance(attackType, pVictim);
+                crit_chance += GetUnitCriticalChance(attackType, pVictim);
 
             crit_chance+= GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_SPELL_CRIT_CHANCE_SCHOOL, schoolMask);
             break;
@@ -7675,7 +7710,12 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo)
         AuraList const& immuneAuraApply = GetAurasByType(SPELL_AURA_MECHANIC_IMMUNITY_MASK);
         for(AuraList::const_iterator iter = immuneAuraApply.begin(); iter != immuneAuraApply.end(); ++iter)
             if ((*iter)->GetModifier()->m_miscvalue & (1 << (mechanic-1)))
+            {
+                if((*iter)->GetId() == 46924 && mechanic == MECHANIC_DISARM) // Hack to remove Bladestorm disarm immunity
+                    continue;
+                
                 return true;
+            }
     }
 
     return false;
@@ -7699,8 +7739,16 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
 
         AuraList const& immuneAuraApply = GetAurasByType(SPELL_AURA_MECHANIC_IMMUNITY_MASK);
         for(AuraList::const_iterator iter = immuneAuraApply.begin(); iter != immuneAuraApply.end(); ++iter)
+        {
             if ((*iter)->GetModifier()->m_miscvalue & (1 << (mechanic-1)))
+            {
+                // Bladestorm exception (Psychic Horror check here)
+                if ((*iter)->GetId() == 46924 && mechanic == MECHANIC_DISARM)
+                    continue;
+
                 return true;
+            }
+        }
     }
 
     if(uint32 aura = spellInfo->EffectApplyAuraName[index])
@@ -7724,7 +7772,7 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
                 spellInfo->Mechanic & (*i)->GetMiscValue()) ||
                 ((*i)->GetId() == 46924 &&                                                // Bladestorm Immunity
                 spellInfo->EffectMechanic[index] & IMMUNE_TO_MOVEMENT_IMPAIRMENT_AND_LOSS_CONTROL_MASK ||
-                spellInfo->Mechanic & IMMUNE_TO_MOVEMENT_IMPAIRMENT_AND_LOSS_CONTROL_MASK))
+                ((1 << (spellInfo->Mechanic - 1)) & IMMUNE_TO_MOVEMENT_IMPAIRMENT_AND_LOSS_CONTROL_MASK)))
                 return true;
     }
 
@@ -8200,22 +8248,11 @@ void Unit::Mount(uint32 mount, uint32 spellId, uint32 vehicleId, uint32 creature
 
         if (vehicleId)
         {
-            if (CreateVehicleKit(vehicleId))
-            {
-                GetVehicleKit()->Reset();
+            SetVehicleId(vehicleId);
+            GetVehicleKit()->Reset();
 
-                // Send others that we now have a vehicle
-                WorldPacket data(SMSG_SET_VEHICLE_REC_ID, 8+4);
-                data << GetPackGUID();
-                data << uint32(vehicleId);
-                SendMessageToSet(&data, true);
-
-                data.Initialize(SMSG_ON_CANCEL_EXPECTED_RIDE_VEHICLE_AURA, 0);
-                ((Player*)this)->GetSession()->SendPacket(&data);
-
-                // mounts can also have accessories
-                GetVehicleKit()->InstallAllAccessories(creatureEntry);
-            }
+            // mounts can also have accessories
+            GetVehicleKit()->InstallAllAccessories(creatureEntry);
         }
     }
 }
@@ -10022,9 +10059,10 @@ void Unit::CleanupsBeforeDelete()
 {
     if(m_uint32Values)                                      // only for fully created object
     {
-        RemoveVehicleKit();
-        ExitVehicle();
-
+        if (GetVehicle())
+            ExitVehicle();
+        if (GetVehicleKit())
+            RemoveVehicleKit();
         InterruptNonMeleeSpells(true);
         m_Events.KillAllEvents(false);                      // non-delatable (currently casted spells) will not deleted now but it will deleted at call in Map::RemoveAllObjectsInRemoveList
         CombatStop();
@@ -11590,18 +11628,6 @@ struct SetPvPHelper
     bool state;
 };
 
-bool Unit::CreateVehicleKit(uint32 vehicleId)
-{
-    VehicleEntry const *vehicleInfo = sVehicleStore.LookupEntry(vehicleId);
-
-    if (!vehicleInfo)
-        return false;
-
-    m_pVehicleKit = new VehicleKit(this, vehicleInfo);
-    m_updateFlag |= UPDATEFLAG_VEHICLE;
-    return true;
-}
-
 void Unit::RemoveVehicleKit()
 {
     if (!m_pVehicleKit)
@@ -11609,8 +11635,8 @@ void Unit::RemoveVehicleKit()
 
     m_pVehicleKit->RemoveAllPassengers();
 
-    delete m_pVehicleKit;
-    m_pVehicleKit = NULL;
+//    delete m_pVehicleKit;
+//    m_pVehicleKit = NULL;
 
     m_updateFlag &= ~UPDATEFLAG_VEHICLE;
     RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK);
@@ -12182,5 +12208,35 @@ ObjectGuid const& Unit::GetCreatorGuid() const
 
         default:
             return ObjectGuid();
+    }
+}
+
+void Unit::SetVehicleId(uint32 entry)
+{
+    delete m_vehicleInfo;
+
+    if (entry)
+    {
+        VehicleEntry const* ventry = sVehicleStore.LookupEntry(entry);
+        MANGOS_ASSERT(ventry != NULL);
+
+        m_vehicleInfo = new VehicleInfo(ventry);
+        m_updateFlag |= UPDATEFLAG_VEHICLE;
+
+        if (!m_pVehicleKit)
+            m_pVehicleKit = new VehicleKit(this);
+    }
+    else
+    {
+        m_vehicleInfo = NULL;
+        m_updateFlag &= ~UPDATEFLAG_VEHICLE;
+    }
+
+    if (GetTypeId() == TYPEID_PLAYER)
+    {
+        WorldPacket data(SMSG_SET_VEHICLE_REC_ID, 16);
+        data << GetPackGUID();
+        data << uint32(entry);
+        SendMessageToSet(&data, true);
     }
 }

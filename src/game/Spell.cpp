@@ -451,6 +451,64 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
     else
         radius = GetSpellMaxRange(sSpellRangeStore.LookupEntry(m_spellInfo->rangeIndex));
 
+    //Corpse Explosion
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT && m_spellInfo->SpellIconID == 1737)
+    {
+        Unit* unitTarget = NULL;
+
+        targetUnitMap.remove(m_caster);
+        unitTarget = m_targets.getUnitTarget();
+
+        if (unitTarget)
+        {
+            // Cast on corpses...
+            if ((unitTarget->getDeathState() == CORPSE && !unitTarget->IsTaxiFlying() &&
+                (unitTarget->GetDisplayId() == unitTarget->GetNativeDisplayId()) && m_caster->IsWithinDistInMap(unitTarget, radius) &&
+                (unitTarget->GetCreatureTypeMask() & CREATURE_TYPEMASK_MECHANICAL_OR_ELEMENTAL) == 0) ||
+                // ...or own Risen Ghoul pet - self explode effect
+                (unitTarget->GetEntry() == 26125 && unitTarget->GetCreatorGuid() == m_caster->GetObjectGuid()) )
+            {
+                targetUnitMap.push_back(unitTarget);
+                return true;
+            }
+        }
+
+        WorldObject* result = FindCorpseUsing <MaNGOS::RaiseDeadObjectCheck>  ();
+        if (result)
+        {
+            switch(result->GetTypeId())
+            {
+                case TYPEID_UNIT:
+                case TYPEID_PLAYER:
+                    targetUnitMap.push_back((Unit*)result);
+                    break;
+                case TYPEID_CORPSE:
+                    m_targets.setCorpseTarget((Corpse*)result);
+                    if (Player* owner = ObjectAccessor::FindPlayer(((Corpse*)result)->GetOwnerGuid()))
+                        targetUnitMap.push_back(owner);
+                    break;
+                default:
+                    targetUnitMap.push_back((Unit*)m_caster);
+                    break;
+            };
+        }
+
+        if (targetUnitMap.empty())
+        {
+            // no valid targets, clear cooldown at fail
+            if (m_caster->GetTypeId() == TYPEID_PLAYER)
+                ((Player*)m_caster)->RemoveSpellCooldown(m_spellInfo->Id, true);
+            SendCastResult(SPELL_FAILED_NO_VALID_TARGETS);
+            finish(false);
+            return false;
+        }
+
+        // OK, we have all possible targets, let's sort them by distance from m_caster and keep the closest one
+//        targetUnitMap.sort(TargetDistanceOrder(m_caster));
+        targetUnitMap.resize(1);
+        return true;
+    }
+
     // Resulting effect depends on spell that we want to cast
     switch (m_spellInfo->Id)
     {
@@ -792,6 +850,9 @@ void Spell::prepareDataForTriggerSystem()
                 // Living Bomb - can trigger Hot Streak
                 else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x1000000000000))
                     m_canTrigger = true;
+                // Fingers of Frost: triggered by Frost/Ice Armor
+                else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000100000))
+                    m_canTrigger = true;
                 break;
             case SPELLFAMILY_WARLOCK:
                 // For Hellfire Effect / Rain of Fire / Seed of Corruption triggers need do it
@@ -1097,7 +1158,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
     // recheck for visibility of target
     if ((m_spellInfo->speed > 0.0f || 
         (m_spellInfo->EffectImplicitTargetA[0] == TARGET_CHAIN_DAMAGE && GetSpellCastTime(m_spellInfo, this) > 0)) &&
-        !unit->isVisibleForOrDetect(m_caster, m_caster, false))
+        (!unit->isVisibleForOrDetect(m_caster, m_caster, false) && !m_IsTriggeredSpell))
     {
         caster->SendSpellMiss(unit, m_spellInfo->Id, SPELL_MISS_EVADE);
         missInfo = SPELL_MISS_EVADE;
@@ -1117,7 +1178,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
         {
             // can cause back attack (if detected)
             if (!(m_spellInfo->AttributesEx3 & SPELL_ATTR_EX3_NO_INITIAL_AGGRO) && !IsPositiveSpell(m_spellInfo->Id) &&
-                m_caster->isVisibleForOrDetect(unit, unit, false))
+                (m_caster->isVisibleForOrDetect(unit, unit, false) && !m_IsTriggeredSpell))
             {
                 if (!unit->isInCombat() && unit->GetTypeId() != TYPEID_PLAYER && ((Creature*)unit)->AI())
                     ((Creature*)unit)->AI()->AttackedBy(real_caster);
@@ -1171,8 +1232,38 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
         }
         // Add bonuses and fill damageInfo struct
         else
-            caster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, m_attackType);
+        {
+            // Chain Lightning - spell coeff bonus based on jump
+            float chainJumpCoeff = 1.0f;
 
+            if (m_caster->GetTypeId() == TYPEID_PLAYER)
+            {
+                for (uint8 i = 0; i < MAX_EFFECT_INDEX; i++)
+                {
+                    if (m_spellInfo->EffectChainTarget[SpellEffectIndex(i)])
+                    {
+                        uint8 chainTarget = 0;
+
+                        //for(Unit::SpellAuraHolderMap::const_iterator itr = auras.begin(); itr!=auras.end(); ++itr)
+                        for(TargetList::const_iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
+                        {
+                            chainTarget++;
+                            if (ihit->targetGUID == unitTarget->GetObjectGuid() && ihit->effectMask & (1<<i))
+                            {
+                                if (chainTarget == 2)
+                                    chainJumpCoeff = 0.7f;
+                                else if (chainTarget == 3)
+                                    chainJumpCoeff = 0.49f;
+                                else if (chainTarget == 4) // with the glyph
+                                    chainJumpCoeff = 0.34f;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            caster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, m_attackType, chainJumpCoeff);
+        }
         unitTarget->CalculateAbsorbResistBlock(caster, &damageInfo, m_spellInfo);
 
         caster->DealDamageMods(damageInfo.target, damageInfo.damage, &damageInfo.absorb);
@@ -1274,13 +1365,13 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
         return;
     }
 
-    if (unit->GetTypeId() == TYPEID_PLAYER)
+    if (unit->GetTypeId() == TYPEID_PLAYER && unit->IsInWorld())
     {
         ((Player*)unit)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET, m_spellInfo->Id);
         ((Player*)unit)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET2, m_spellInfo->Id);
     }
 
-    if (realCaster && realCaster->GetTypeId() == TYPEID_PLAYER)
+    if (realCaster && realCaster->GetTypeId() == TYPEID_PLAYER && realCaster->IsInWorld())
         ((Player*)realCaster)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_CAST_SPELL2, m_spellInfo->Id, 0, unit);
 
     if (realCaster && realCaster != unit)
@@ -1299,7 +1390,7 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
         {
             // for delayed spells ignore not visible explicit target
             if (m_spellInfo->speed > 0.0f && unit == m_targets.getUnitTarget() &&
-                !unit->isVisibleForOrDetect(m_caster, m_caster, false))
+                (!unit->isVisibleForOrDetect(m_caster, m_caster, false) && !m_IsTriggeredSpell))
             {
                 realCaster->SendSpellMiss(unit, m_spellInfo->Id, SPELL_MISS_EVADE);
                 ResetEffectDamageAndHeal();
@@ -1680,8 +1771,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 59870:                                 // Glare of the Tribunal (h) (Halls of Stone)
                 case 63387:                                 // Rapid Burst
                 case 64531:                                 // Rapid Burst (h)
-                case 61916:                                 // Lightning Whirl (10 man)
-                case 63482:                                 // Lightning Whirl (25 man)
                 case 66336:                                 // Mistress' Kiss (Trial of the Crusader, ->
                 case 67077:                                 // -> Lord Jaraxxus encounter, 10 and 10 heroic)
                 case 66001:                                 // Touch of Darkness
@@ -1698,6 +1787,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 28542:                                 // Life Drain
                 case 66013:                                 // Penetrating Cold (10 man)
                 case 68509:                                 // Penetrating Cold (10 man heroic)
+                case 62476:                                 // Icicle (Hodir 10man)
                     unMaxTargets = 2;
                     break;
                 case 28796:                                 // Poison Bolt Volley
@@ -1706,7 +1796,16 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 39992:                                 // Needle Spine Targeting (Warlord Najentus)
                 case 51904:                                 // Limiting the count of Summoned Ghouls
                 case 54522:
+                case 61693:                                 // Arcane Storm (Malygos)
+                case 60936:                                 // Surge of Power (h) (Malygos)
+                case 62477:                                 // Icicle (Hodir 25man)
                     unMaxTargets = 3;
+                    break;
+                case 61916:                                 // Lightning Whirl (Stormcaller Brundir - Ulduar)
+                    unMaxTargets = urand(2, 3);
+                    break;
+                case 63482:                                 // Lightning Whirl (h) (Stormcaller Brundir - Ulduar)
+                    unMaxTargets = urand(3, 6);
                     break;
                 case 30843:                                 // Enfeeble TODO: exclude top threat target from target selection
                 case 42005:                                 // Bloodboil TODO: need to be 5 targets(players) furthest away from caster
@@ -2087,6 +2186,36 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                             targetUnitMap.push_back(*iter);
                 return;
             }
+
+            // Arcane Storm (Malygos)
+            // don't target main target (2-3 or 4-5 random targets)
+            else if (m_spellInfo->Id == 61693 || m_spellInfo->Id == 61694)
+            {
+                if (m_caster->getVictim())
+                    targetUnitMap.remove(m_caster->getVictim());
+            }
+
+            // Focused Eyebeam (Kologarn)
+            else if (m_spellInfo->Id == 63342 ||                         // Focused Eyebeam (Kologarn)
+                m_spellInfo->Id == 62166 || m_spellInfo->Id == 63981)    // Stone Grip (Kologarn)
+            {
+                targetUnitMap.clear();
+                if (m_targets.getUnitTarget())
+                {
+                    targetUnitMap.push_back(m_targets.getUnitTarget());
+                    return;
+                }
+                else
+                    unMaxTargets = 1;
+            }
+            // Solar Flare (Freya's elder)
+            else if (m_spellInfo->Id == 62240 || m_spellInfo->Id == 62920)
+            {
+                if (SpellAuraHolder *holder = m_caster->GetSpellAuraHolder(62239))
+                    unMaxTargets = holder->GetStackAmount();
+                else 
+                    unMaxTargets = 1;
+            }
             break;
         case TARGET_AREAEFFECT_INSTANT:
         {
@@ -2197,6 +2326,33 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                                     break;
                             }
                 break;
+            }
+             // Decimate - Gluth encounter
+            // target everything in the room except the caster
+            if (m_spellInfo->Id == 28374)
+            {
+                targetUnitMap.clear();
+                FillAreaTargets(targetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_ALL);
+            }
+
+            // Supercharge (Iron Council: Ulduar)
+            if (m_spellInfo->Id == 61920)
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_NOT_HOSTILE);
+
+                for (std::list<Unit*>::iterator itr = tempTargetUnitMap.begin(),next; itr != tempTargetUnitMap.end(); itr++)
+                {
+                    if ((*itr) &&
+                        ((*itr)->GetEntry() == 32867 || // Steelbreaker
+                        (*itr)->GetEntry() == 32927 || // Runemaster Molgeim
+                        (*itr)->GetEntry() == 32857) // Stormcaller Brundir
+                        )
+                        targetUnitMap.push_back(*itr);
+                }
+
+                return;
             }
 
             // exclude caster
@@ -2569,8 +2725,24 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             {
                 FillRaidOrPartyHealthPriorityTargets(targetUnitMap, m_caster, m_caster, radius, 1, true, false, false);
             }
+            // Gravity Bomb, Searing Light
+            else if (m_spellInfo->SpellIconID == 3757 || m_spellInfo->SpellIconID == 3021)
+            {
+               // targets are checked with original caster, which is in fact hostile, not friendly
+                if (Unit *pTarget = m_targets.getUnitTarget())
+                {
+                    FillAreaTargets(targetUnitMap, pTarget->GetPositionX(), pTarget->GetPositionY(), radius, PUSH_TARGET_CENTER, SPELL_TARGETS_FRIENDLY, pTarget);
+                    targetUnitMap.remove(pTarget); // the target of aura triggering this spell
+                    return;
+                }
+            }
             else
+            {
                 FillAreaTargets(targetUnitMap, m_targets.m_destX, m_targets.m_destY, radius, PUSH_DEST_CENTER, SPELL_TARGETS_FRIENDLY);
+                
+                if (m_spellInfo->Id == 27820) // Detonate Mana
+                    targetUnitMap.remove(m_caster);
+            }
             break;
         // TARGET_SINGLE_PARTY means that the spells can only be casted on a party member and not on the caster (some seals, fire shield from imp, etc..)
         case TARGET_SINGLE_PARTY:
@@ -3162,6 +3334,32 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                         case SPELL_AURA_MOD_DAMAGE_DONE:
                             targetUnitMap.push_back(m_caster);
                             break;
+                        case SPELL_AURA_DUMMY:
+                        {
+                                SetTargetMap(effIndex, m_spellInfo->EffectImplicitTargetB[effIndex], targetUnitMap);
+                                return;
+                        }
+                        case SPELL_AURA_PERIODIC_DAMAGE:
+                        {
+                            switch (m_spellInfo->Id)
+                            {
+                                case 63024: // Gravity Bomb (XT-002)
+                                case 64234: // Gravity Bomb (h) (XT-002)
+                                case 63018: // Searing Light (XT-002)
+                                case 65121: // Searing Light (h) (XT-002)
+                                {
+                                    if (Unit *pTarget = m_targets.getUnitTarget())
+                                    {
+                                        targetUnitMap.clear();
+                                        targetUnitMap.push_back(pTarget);
+                                        return;
+                                    }
+                                }
+                                default:
+                                    break;
+                            }
+                            break;
+                        }
                         default:                            // apply to target in other case
                             if (m_targets.getUnitTarget())
                                 targetUnitMap.push_back(m_targets.getUnitTarget());
@@ -3187,6 +3385,17 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     break;
             }
             break;
+        }
+        case TARGET_UNK_92:
+        {
+            if (Unit *unitTarget = m_targets.getUnitTarget())
+            targetUnitMap.push_back(unitTarget);
+            else
+            {
+                if (Unit *creator = m_caster->GetMap()->GetUnit(m_caster->GetCreatorGuid()))
+                targetUnitMap.push_back(creator);
+             }
+             break;
         }
         default:
             //sLog.outError( "SPELL: Unknown implicit target (%u) for spell ID %u", targetMode, m_spellInfo->Id );
@@ -3311,8 +3520,8 @@ void Spell::prepare(SpellCastTargets const* targets, Aura* triggeredByAura)
 
         TriggerGlobalCooldown();
     }
-    // execute triggered without cast time explicitly in call point
-    else if(m_timer == 0)
+    // execute triggered or without cast time explicitly in call point
+    else if(m_timer == 0 || m_IsTriggeredSpell)
         cast(true);
     // else triggered with cast time will execute execute at next tick or later
     // without adding to cast type slot
@@ -3462,6 +3671,9 @@ void Spell::cast(bool skipCheck)
                 AddTriggeredSpell(74610);                  // Fiery combustion
             else if (m_spellInfo->Id == 74799)
                 AddTriggeredSpell(74800);                  // Soul consumption
+            // Flash Freeze (Hodir: Ulduar)
+            else if (m_spellInfo->Id == 61968)
+                AddTriggeredSpell(62148);                   // visual effect
             break;
         }
         case SPELLFAMILY_MAGE:
@@ -3840,7 +4052,7 @@ void Spell::update(uint32 difftime)
         {
             if(m_timer)
             {
-                if (m_targets.getUnitTarget() && m_targets.getUnitTarget()->isAlive() && !m_targets.getUnitTarget()->isVisibleForOrDetect(m_caster, m_caster, false))
+                if (m_targets.getUnitTarget() && m_targets.getUnitTarget()->isAlive() && !m_targets.getUnitTarget()->isVisibleForOrDetect(m_caster, m_caster, false) && !m_IsTriggeredSpell )
                     cancel();
 
                 if(difftime >= m_timer)
@@ -4888,7 +5100,11 @@ void Spell::HandleEffects(Unit *pUnitTarget,Item *pItemTarget,GameObject *pGOTar
 
     damage = int32(CalculateDamage(i, unitTarget) * DamageMultiplier);
 
-    DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Spell %u Effect%d : %u", m_spellInfo->Id, i, eff);
+    DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Spell %u Effect%d : %u Targets: %s, %s, %s",
+        m_spellInfo->Id, i, eff,
+        unitTarget ? unitTarget->GetGuidStr().c_str() : "-",
+        itemTarget ? itemTarget->GetGuidStr().c_str() : "-",
+        gameObjTarget ? gameObjTarget->GetGuidStr().c_str() : "-");
 
     if(eff < TOTAL_SPELL_EFFECTS)
     {
@@ -5717,7 +5933,13 @@ SpellCastResult Spell::CheckCast(bool strict)
             case SPELL_EFFECT_CHARGE:
             {
                 if (m_caster->hasUnitState(UNIT_STAT_ROOT) && !(m_spellInfo->Id == 3411 && m_caster->HasAura(57499)))
-                    return SPELL_FAILED_ROOTED;
+                {
+                    // Intervene with Warbringer talent
+                    if (m_spellInfo->Id == 3411 && m_caster->HasAura(57499, EFFECT_INDEX_2))
+                        m_caster->RemoveAurasAtMechanicImmunity(IMMUNE_TO_ROOT_AND_SNARE_MASK, 0);
+                    else
+                        return SPELL_FAILED_ROOTED;
+                }
 
                 break;
             }
@@ -6196,7 +6418,7 @@ SpellCastResult Spell::CheckPetCast(Unit* target)
                     return SPELL_FAILED_BAD_TARGETS;
                 }
             }
-            else if (!_target->isTargetableForAttack() || !_target->isVisibleForOrDetect(m_caster,m_caster,true))
+            else if (!_target->isTargetableForAttack() || (!_target->isVisibleForOrDetect(m_caster,m_caster,true) && !m_IsTriggeredSpell))
             {
                 DEBUG_LOG("Charmed creature attempt to cast spell %d, but target (guid %u) is not targetable or not detectable",m_spellInfo->Id,target->GetObjectGuid().GetRawValue());
                 return SPELL_FAILED_BAD_TARGETS;            // guessed error
@@ -6864,7 +7086,7 @@ SpellCastResult Spell::CheckItems()
                     }
 
                     ItemPosCountVec dest;
-                    uint8 msg = p_caster->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, m_spellInfo->EffectItemType[i], 1 );
+                    InventoryResult msg = p_caster->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, m_spellInfo->EffectItemType[i], 1 );
                     if (msg != EQUIP_ERR_OK )
                     {
                         p_caster->SendEquipError( msg, NULL, NULL, m_spellInfo->EffectItemType[i] );
@@ -6894,7 +7116,7 @@ SpellCastResult Spell::CheckItems()
                 if (isVellumTarget && m_spellInfo->EffectItemType[i])
                 {
                     ItemPosCountVec dest;
-                    uint8 msg = p_caster->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, m_spellInfo->EffectItemType[i], 1 );
+                    InventoryResult msg = p_caster->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, m_spellInfo->EffectItemType[i], 1 );
                     if (msg != EQUIP_ERR_OK)
                     {
                         p_caster->SendEquipError( msg, NULL, NULL );
