@@ -64,6 +64,7 @@ class MANGOS_DLL_SPEC VehicleKit
         ~VehicleKit();
 
         void Reset();
+        void InstallAccessory(uint32 entry, int8 seatId, bool minion = true);
         void InstallAllAccessories(uint32 entry);
 
         bool HasEmptySeat(int8 seatId) const;
@@ -79,7 +80,6 @@ class MANGOS_DLL_SPEC VehicleKit
 
     private:
         void UpdateFreeSeatCount();
-        void InstallAccessory(uint32 entry, int8 seatId, bool minion = true);
 
         SeatMap m_Seats;
         uint32 m_uiNumFreeSeats;
