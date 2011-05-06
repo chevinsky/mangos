@@ -244,6 +244,7 @@ struct LFGPlayerState
     void SetRoles(uint8 roles);
     void AddRole(LFGRoles role) { rolesMask = LFGRoleMask( rolesMask | (1 << role)); };
     void RemoveRole(LFGRoles role) { rolesMask = LFGRoleMask( rolesMask & ~(1 << role)); };
+    bool IsSingleRole();
 
     uint32         GetFlags()                { return m_flags;};
     void           AddFlags(uint32 flags)    { m_flags = m_flags | flags;};
@@ -279,32 +280,45 @@ struct LFGGroupState
     void Update(bool _update = true) { update = _update; };
     LFGDungeonSet* GetDungeons()   { return &m_DungeonsList; };
 
-    void SetState(LFGState _state) { m_state = _state; };
-    LFGState GetState() { return m_state; };
+    void          SetState(LFGState _state) { m_state = _state; };
+    LFGState      GetState() { return m_state; };
 
-    LFGProposal*   GetProposal()   { return m_proposal; };
-    void           SetProposal(LFGProposal* proposal)   { m_proposal = proposal; };
+    void          SetStatus(LFGDungeonStatus _status) { m_status = _status; };
+    LFGDungeonStatus      GetStatus() { return m_status; };
 
-    uint32* GetFlags()  { return &m_flags;};
+    LFGProposal*  GetProposal()   { return m_proposal; };
+    void          SetProposal(LFGProposal* proposal)   { m_proposal = proposal; };
+
+    uint32*       GetFlags()  { return &m_flags;};
     LFGType       GetType();
     uint8         GetRoles(LFGRoles role);
 
     // VoteKick
     uint8 GetVotesNeeded() const;
     uint8 GetKicksLeft() const;
+    void DecreaseKicksLeft() {--m_kicksLeft;};
+
+    // Role checks
+    LFGRoleCheckState GetRoleCheckState() const { return m_roleCheckState;};
+    void SetRoleCheckState( LFGRoleCheckState _state) { m_roleCheckState = _state; };
+    void StartRoleCheck();
+    bool QueryRoleCheckTime() {return !(time_t(time(NULL)) > m_roleCheckCancelTime);};
+    bool IsRoleCheckActive();
 
     bool          queued;
     bool          update;
     Group*        m_group;
     uint32        dungeonEntry;
     uint32        m_flags;
-    uint8         m_votesNeeded;                               ///< Votes need to kick success
-    uint8         m_kicksLeft;                                 ///< Number of kicks left
+    uint8         m_votesNeeded;                               // Votes need to kick success
+    uint8         m_kicksLeft;                                 // Number of kicks left
     bool          kickActive;
     LFGState      m_state;
-    LFGDungeonStatus     status;
-    LFGDungeonSet    m_DungeonsList;                // Dungeons the group have applied for
+    LFGDungeonStatus     m_status;
+    LFGDungeonSet    m_DungeonsList;                           // Dungeons the group have applied for
     LFGProposal*  m_proposal;
+    time_t        m_roleCheckCancelTime;                       // Time when the rolecheck will fail
+    LFGRoleCheckState m_roleCheckState;                        // State of the rolecheck
 };
 
 #endif
