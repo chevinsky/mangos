@@ -1641,6 +1641,7 @@ LFGQueueSet* LFGMgr::GetSearchVector(LFGDungeonEntry const* dungeon)
 
 bool LFGMgr::IsInSearchFor(LFGDungeonEntry const* dungeon, ObjectGuid guid)
 {
+    return false;
 }
 
 void LFGMgr::CleanupSearchMatrix()
