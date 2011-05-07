@@ -7997,9 +7997,12 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 {
                     if (!unitTarget)
                         return;
-
+                                                            // remove Warts!
+                    unitTarget->RemoveAurasDueToSpell(62581);
                     if (!unitTarget->HasAura(62574))        // if not protected by potion cast Warts!
                         m_caster->CastSpell(unitTarget, 62581, true);
+                                                            // remove protective aura
+                    unitTarget->RemoveAurasDueToSpell(62574);
 
                     m_caster->GetMotionMaster()->MoveFollow(unitTarget, PET_FOLLOW_DIST, unitTarget->GetAngle(m_caster));
                     break;
