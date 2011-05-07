@@ -18,6 +18,7 @@
 
 #include "Common.h"
 #include "SharedDefines.h"
+#include "ObjectMgr.h"
 #include "LFG.h"
 #include "LFGMgr.h"
 #include "Group.h"
@@ -75,6 +76,11 @@ void LFGPlayerState::SetRoles(uint8 roles)
 LFGRoleMask LFGPlayerState::GetRoles()
 {
     return rolesMask;
+};
+
+void LFGPlayerState::SetJoined()
+{
+    m_jointime = time_t(time(NULL));
 };
 
 bool LFGPlayerState::IsSingleRole()
@@ -206,6 +212,11 @@ LFGProposal::LFGProposal(LFGDungeonEntry const* _dungeon)
     m_group = NULL;
     m_cancelTime = 0;
 }
+
+void LFGProposal::Start()
+{
+    m_cancelTime = time_t(time(NULL)) + LFG_TIME_PROPOSAL;
+};
 
 void LFGProposal::RemoveDecliner(ObjectGuid guid)
 {
