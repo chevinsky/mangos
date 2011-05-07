@@ -1784,6 +1784,11 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 67296:
                 case 67297:
                 case 67298:
+                case 62488:                                 // Activate Construct (Ulduar - Ignis encounter)
+                case 63024:                                 // Gravity Bomb (XT-002)
+                case 64234:                                 // Gravity Bomb (h) (XT-002)
+                case 63018:                                 // Searing Light (XT-002)
+                case 65121:                                 // Searing Light (h) (XT-002)
                 case 68950:                                 // Fear
                     unMaxTargets = 1;
                     break;
@@ -2337,7 +2342,37 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 targetUnitMap.clear();
                 FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_ALL);
             }
+            // Activate Constructs (remove all except inactive constructs)
+            if (m_spellInfo->Id == 62488 && !targetUnitMap.empty() )
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_NOT_HOSTILE);
 
+                for (std::list<Unit*>::iterator itr = tempTargetUnitMap.begin(),next; itr != tempTargetUnitMap.end(); itr++)
+                {
+                    if ((*itr) && (*itr)->GetEntry() == 33121 && (*itr)->HasAura(62468, EFFECT_INDEX_0))
+                        targetUnitMap.push_back(*itr);
+                }
+            }
+            // Heat (remove all except active iron constructs)
+            if (m_spellInfo->Id == 62343)
+            {
+                std::list<Unit*> tempTargetUnitMap;
+                targetUnitMap.clear();
+                FillAreaTargets(tempTargetUnitMap, m_caster->GetPositionX(), m_caster->GetPositionY(), radius, PUSH_DEST_CENTER, SPELL_TARGETS_NOT_HOSTILE);
+
+                for (std::list<Unit*>::iterator itr = tempTargetUnitMap.begin(),next; itr != tempTargetUnitMap.end(); itr++)
+                {
+                    if ((*itr) && (*itr)->GetEntry() == 33121 &&
+                        !(*itr)->HasAura(62468) && !(*itr)->HasAura(62373) &&
+                        !(*itr)->HasAura(62382) && !(*itr)->HasAura(67114)
+                        )
+                        targetUnitMap.push_back(*itr);
+                }
+
+                return;
+            }
             // Supercharge (Iron Council: Ulduar)
             if (m_spellInfo->Id == 61920)
             {
