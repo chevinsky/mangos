@@ -46,7 +46,7 @@ void LFGPlayerState::Clear()
 
 LFGLockStatusMap* LFGPlayerState::GetLockMap()
 {
-    if (update)
+    if (update || m_LockMap.empty())
     {
         m_LockMap.clear();
         m_LockMap = sLFGMgr.GetPlayerLockMap(m_player);
@@ -78,9 +78,18 @@ LFGRoleMask LFGPlayerState::GetRoles()
     return rolesMask;
 };
 
+LFGType LFGPlayerState::GetDungeonType()
+{
+    if (!GetDungeons() || GetDungeons()->empty())
+        return LFG_TYPE_NONE;
+
+    return LFGType((*GetDungeons()->begin())->type);
+};
+
 void LFGPlayerState::SetJoined()
 {
     m_jointime = time_t(time(NULL));
+    m_teleported = false;
 };
 
 bool LFGPlayerState::IsSingleRole()
@@ -116,7 +125,6 @@ void LFGGroupState::Clear()
     queued = false;
     update = true;
     m_status = LFG_STATUS_NOT_SAVED;
-    dungeonEntry = 0;
     m_votesNeeded = 3;
     m_kicksLeft = 5;
     kickActive = false;
@@ -128,6 +136,7 @@ void LFGGroupState::Clear()
     m_proposal = NULL;
     m_roleCheckCancelTime = 0;
     m_roleCheckState      = LFG_ROLECHECK_NONE;
+    SetDungeon(NULL);
 }
 
 uint8 LFGGroupState::GetRoles(LFGRoles role)
@@ -167,17 +176,18 @@ bool LFGGroupState::IsRoleCheckActive()
     return false;
 }
 
-LFGType LFGGroupState::GetType()
+LFGType LFGGroupState::GetDungeonType()
 {
-    if (m_DungeonsList.empty())
+    if (!GetDungeons() || GetDungeons()->empty())
         return LFG_TYPE_NONE;
-    else
-        return LFGType((*m_DungeonsList.begin())->type);
+
+    return LFGType((*GetDungeons()->begin())->type);
 };
 
-LFGQueueInfo::LFGQueueInfo(ObjectGuid _guid)
+LFGQueueInfo::LFGQueueInfo(ObjectGuid _guid, LFGType type)
 {
     guid = _guid;
+    m_type = type;
     MANGOS_ASSERT(!guid.IsEmpty());
 
     tanks = LFG_TANKS_NEEDED;
@@ -185,24 +195,6 @@ LFGQueueInfo::LFGQueueInfo(ObjectGuid _guid)
     dps = LFG_DPS_NEEDED;
     joinTime = time_t(time(NULL));
 
-    if (!guid.IsGroup())
-        m_dungeons = sObjectMgr.GetPlayer(guid)->GetLFGState()->GetDungeons();
-    else if (guid.IsPlayer())
-        m_dungeons = sObjectMgr.GetGroup(guid)->GetLFGState()->GetDungeons();
-
-};
-
-LFGType LFGQueueInfo::GetDungeonType()
-{
-    if (!GetDungeons() || GetDungeons()->empty())
-        return LFG_TYPE_NONE;
-
-    LFGDungeonEntry const* dungeon = *GetDungeons()->begin();
-
-    if (!dungeon)
-        return LFG_TYPE_NONE;
-
-    return LFGType(dungeon->type);
 };
 
 LFGProposal::LFGProposal(LFGDungeonEntry const* _dungeon)
@@ -223,11 +215,19 @@ void LFGProposal::RemoveDecliner(ObjectGuid guid)
     if (guid.IsEmpty())
         return;
 
+    RemoveMember(guid);
+
+    declinerGuids.insert(guid);
+};
+
+void LFGProposal::RemoveMember(ObjectGuid guid)
+{
+    if (guid.IsEmpty())
+        return;
+
     LFGQueueSet::iterator itr = playerGuids.find(guid);
     if (itr != playerGuids.end())
         playerGuids.erase(itr);
-
-    declinerGuids.insert(guid);
 };
 
 void LFGProposal::AddMember(ObjectGuid guid)
@@ -245,4 +245,9 @@ bool LFGProposal::IsDecliner(ObjectGuid guid)
         return true;
 
     return false;
+};
+
+LFGType LFGProposal::GetType()
+{
+    return (m_dungeon ? LFGType(m_dungeon->type) : LFG_TYPE_NONE);
 };
