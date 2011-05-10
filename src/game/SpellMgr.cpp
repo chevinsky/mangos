@@ -2126,9 +2126,9 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                     spellInfo_2->SpellIconID == 544 && spellInfo_1->SpellIconID == 3317 )
                     return false;
 
-                // Shadowflame and Corruption 
-                if( spellInfo_1->SpellIconID == 313 && spellInfo_2->SpellIconID == 3317 ||
-                    spellInfo_2->SpellIconID == 313 && spellInfo_1->SpellIconID == 3317 )
+                // Shadowflame and Curse of Doom
+                if( spellInfo_1->SpellIconID == 91 && spellInfo_2->SpellIconID == 3317 ||
+                    spellInfo_2->SpellIconID == 91 && spellInfo_1->SpellIconID == 3317 )
                     return false;
 
                 // Shadowflame and Unstable Affliction
