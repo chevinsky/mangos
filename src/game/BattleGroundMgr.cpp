@@ -915,12 +915,12 @@ void BattleGroundQueue::Update(BattleGroundTypeId bgTypeId, BattleGroundBracketI
             if (!m_QueuedGroups[bracket_id][BG_QUEUE_PREMADE_HORDE].empty())
             {
                 front2 = m_QueuedGroups[bracket_id][BG_QUEUE_PREMADE_HORDE].front();
-                arenaRating = front2->ArenaMatchmakerRating;
+                arenaRating = front2->ArenaTeamRating;
             }
             if (front1 && front2)
             {
                 if (front1->JoinTime < front2->JoinTime)
-                    arenaRating = front1->ArenaMatchmakerRating;
+                    arenaRating = front1->ArenaTeamRating;
             }
             else if (!front1 && !front2)
                 return; //queues are empty

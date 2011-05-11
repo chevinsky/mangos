@@ -838,7 +838,7 @@ void BattleGround::EndBattleGround(Team winner)
                 if (team == winner)
                     winner_arena_team->OfflineMemberLost(itr->first, loser_rating);
                 else
-                    loser_arena_team->OfflineMemberLost(itr->first, winner_matchmaker_rating);
+                    loser_arena_team->OfflineMemberLost(itr->first, winner_rating);
             }
             continue;
         }
