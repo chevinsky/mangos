@@ -1,7 +1,7 @@
 -- Vehicle accessory
 -- Commit e197cf0cba3487dd1a3f
 
-INSERT INTO `vehicle_accessory`
+REPLACE INTO `vehicle_accessory`
     (`entry`, `accessory_entry`, `seat_id`, `minion`, `description`)
 VALUES
     (36891,31260,0,0,'Ymirjar Skycaller'),
