@@ -20363,8 +20363,9 @@ void Player::ToggleMetaGemsActive(uint8 exceptslot, bool apply)
     }
 }
 
-void Player::SetBattleGroundEntryPoint()
+void Player::SetBattleGroundEntryPoint(bool forLFG)
 {
+    m_bgData.forLFG = forLFG;
     // Taxi path store
     if (!m_taxi.empty())
     {
@@ -21218,7 +21219,7 @@ bool Player::HasQuestForGO(int32 GOId) const
 
 void Player::UpdateForQuestWorldObjects()
 {
-    if(m_clientGUIDs.empty())
+    if(m_clientGUIDs.empty() || !GetMap())
         return;
 
     UpdateData udata;
@@ -23132,7 +23133,7 @@ void Player::_SaveBGData()
 
     stmt.PExecute(GetGUIDLow());
 
-    if (m_bgData.bgInstanceID)
+    if (m_bgData.bgInstanceID || m_bgData.forLFG)
     {
         stmt = CharacterDatabase.CreateStatement(insBGData, "INSERT INTO character_battleground_data VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         /* guid, bgInstanceID, bgTeam, x, y, z, o, map, taxi[0], taxi[1], mountSpell */
