@@ -1,5 +1,6 @@
 -- Vehicle accessory
 -- Commit e197cf0cba3487dd1a3f
+TRUNCATE TABLE `vehicle_accessory`;
 
 REPLACE INTO `vehicle_accessory`
     (`entry`, `accessory_entry`, `seat_id`, `minion`, `description`)
