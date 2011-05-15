@@ -25,8 +25,8 @@ UPDATE creature_template SET mechanic_immune_mask = mechanic_immune_mask&~335544
 -- charm
 UPDATE creature_template SET mechanic_immune_mask = mechanic_immune_mask&~1 WHERE entry IN
 (
-16803, 29941 -- Death Knight Understudy
-16505, 29273 -- Naxxramas Follower
+16803, 29941, -- Death Knight Understudy
+16505, 29273, -- Naxxramas Follower
 16506, 29274 -- Naxxramas Worshipper
 );
 
