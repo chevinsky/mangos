@@ -6823,7 +6823,7 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
             (*i)->GetSpellProto()->EquippedItemInventoryTypeMask == 0 )
                                                             // 0 == any inventory type (not wand then)
         {
-            float fDoneTotalModTmp = 1.0f;
+            int32 fDoneTotalModTmp = 0;
 
             // bonus stored in another auras basepoints
             if ((*i)->GetModifier()->m_amount == 0)
@@ -6836,27 +6836,27 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
                     {
                         if ((*itr)->GetSpellProto()->SpellIconID == 3053)
                         {
-                            fDoneTotalModTmp *= ((*itr)->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_1) + 100.0f) / 100.0f;
+                            fDoneTotalModTmp = (*itr)->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_1);
                             break;
                         }
                     }
                 }
             }
             else
-                fDoneTotalModTmp *= ((*i)->GetModifier()->m_amount+100.0f)/100.0f;
+                fDoneTotalModTmp = (*i)->GetModifier()->m_amount;
 
             if ((*i)->IsStacking())
-                DoneTotalMod *= fDoneTotalModTmp;
+                DoneTotalMod *= (fDoneTotalModTmp + 100.0f) / 100.0f;
             else
             {
-                if(fDoneTotalModTmp > nonStackingPos)
+                if (fDoneTotalModTmp > nonStackingPos)
                     nonStackingPos = fDoneTotalModTmp;
-                else if(fDoneTotalModTmp < nonStackingNeg)
+                else if (fDoneTotalModTmp < nonStackingNeg)
                     nonStackingNeg = fDoneTotalModTmp;
             }
         }
     }
-    DoneTotalMod *= nonStackingPos * nonStackingNeg;
+    DoneTotalMod *= ((nonStackingPos + 100.0f) / 100.0f) * ((nonStackingNeg + 100.0f) / 100.0f);
 
     uint32 creatureTypeMask = pVictim->GetCreatureTypeMask();
     // Add flat bonus from spell damage versus
