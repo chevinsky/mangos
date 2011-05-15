@@ -1882,6 +1882,30 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
     // Specific spell family spells
     switch(spellInfo_1->SpellFamilyName)
     {
+        case SPELLFAMILY_GENERIC:
+            switch(spellInfo_2->SpellFamilyName)
+            {
+                case SPELLFAMILY_GENERIC:                   // same family case
+                {
+                    // Dark Essence & Light Essence
+                    if ((spellInfo_1->Id == 65684 && spellInfo_2->Id == 65686) ||
+                        (spellInfo_2->Id == 65684 && spellInfo_1->Id == 65686))
+                        return true;
+
+                    //Potent Fungus and Mini must remove each other (Amanitar encounter, Ahn'kahet)
+                    if ((spellInfo_1->Id == 57055 && spellInfo_2->Id == 56648) ||
+                        (spellInfo_2->Id == 57055 && spellInfo_1->Id == 56648))
+                        return true;
+
+                    // Cologne Immune and Perfume Immune
+                    if ((spellInfo_1->Id == 68529 && spellInfo_2->Id == 68530) ||
+                        (spellInfo_2->Id == 68529 && spellInfo_1->Id == 68530))
+                        return true;
+
+                    break;
+                }
+            }
+            break;
         case SPELLFAMILY_WARLOCK:
             if (spellInfo_2->SpellFamilyName == SPELLFAMILY_WARLOCK)
             {
