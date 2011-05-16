@@ -1096,11 +1096,12 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         spell_id = 11538;
                     else if (roll < 70)                     // Chain Lighting (20% chance)
                         spell_id = 21179;
-                    else if (roll < 80)                     // Polymorph (10% chance)
+                    else if (roll < 77)                     // Polymorph (10% chance, 7% to target)
+                        spell_id = 14621;
+                    else if (roll < 80)                     // Polymorph (10% chance, 3% to self, backfire)
                     {
                         spell_id = 14621;
-                        if (urand(0, 9) < 3)                // 30% chance to self-cast
-                            newTarget = m_caster;
+                        newTarget = m_caster;
                     }
                     else if (roll < 95)                     // Enveloping Winds (15% chance)
                         spell_id = 25189;
@@ -1222,6 +1223,21 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 {
                     if (unitTarget)
                         m_caster->CastSpell(m_caster, 20578, false, NULL);
+
+                    return;
+                }
+                case 21147:                                 // Arcane Vacuum
+                {
+                    if (!unitTarget)
+                        return;
+
+                    // Spell used by Azuregos to teleport all the players to him
+                    // This also resets the target threat
+                    if (m_caster->getThreatManager().getThreat(unitTarget))
+                        m_caster->getThreatManager().modifyThreatPercent(unitTarget, -100);
+
+                    // cast summon player
+                    m_caster->CastSpell(unitTarget, 21150, true);
 
                     return;
                 }
@@ -2644,6 +2660,16 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                             break;
                     }
                     m_caster->CastSpell(m_caster, spell_id, true);
+                    return;
+                }
+                case 67400:                                 // Zergling Attack (on Grunty companion)
+                {
+                    if (!unitTarget || unitTarget->GetTypeId() != TYPEID_UNIT || !((Creature*)unitTarget)->IsPet())
+                        return;
+
+                    m_caster->DealDamage(unitTarget, unitTarget->GetMaxHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                    ((Pet*)unitTarget)->Unsummon(PET_SAVE_AS_DELETED);
+                    m_caster->GetMotionMaster()->MovementExpired();
                     return;
                 }
                 case 69922:                                 // Temper Quel'Delar
@@ -8129,6 +8155,24 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(unitTarget, 66747, true);
                     return;
                 }
+                case 67398:                                 // Zergling Periodic Effect (Called by Zergling Passive)
+                {
+                    if (!unitTarget || !unitTarget->isAlive())
+                        return;
+                                                            // Only usable on Grunty companion
+                    Unit* pGrunty = unitTarget->GetMiniPet();
+                    if (pGrunty && pGrunty->GetEntry() == 34694)
+                    {
+                        if (m_caster->IsWithinDist(pGrunty, 2.0f))
+                            m_caster->CastSpell(pGrunty, 67400, true); //zerg attack
+                        else
+                        {
+                            m_caster->CastSpell(pGrunty, 67397, true); // zerg rush dummy aura
+                            m_caster->GetMotionMaster()->MoveFollow(pGrunty,0,0);
+                        }
+                    }
+                    return;
+                }
                 case 68861:                                 // Consume Soul (ICC FoS: Bronjahm)
                     if (unitTarget)
                         unitTarget->CastSpell(unitTarget, 68858, true);
@@ -9638,6 +9682,30 @@ void Spell::EffectKnockBack(SpellEffectIndex eff_idx)
 {
     if(!unitTarget)
         return;
+
+    // Can't knockback world bosses (don't know any exceptions)
+    if (unitTarget->GetTypeId() != TYPEID_PLAYER)
+        if (((Creature*)unitTarget)->IsWorldBoss())
+            return;
+
+    // Can't knockback rooted target
+    if (unitTarget->hasUnitState(UNIT_STAT_ROOT))
+        return;
+
+    // Typhoon
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_DRUID && m_spellInfo->SpellFamilyFlags & UI64LIT(0x100000000000000) )
+        if (m_caster->HasAura(62135)) // Glyph of Typhoon
+            return;
+
+    // Thunderstorm
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_SHAMAN && m_spellInfo->SpellFamilyFlags & UI64LIT(0x00200000000000))
+        if (m_caster->HasAura(62132)) // Glyph of Thunderstorm
+            return;
+
+    // Blast Wave
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_MAGE && m_spellInfo->SpellFamilyFlags & UI64LIT(0x0004000000000))
+        if (m_caster->HasAura(62126)) // Glyph of Blast Wave
+            return;
 
     unitTarget->KnockBackFrom(m_caster,float(m_spellInfo->EffectMiscValue[eff_idx])/10,float(damage)/10);
 }

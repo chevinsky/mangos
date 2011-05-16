@@ -42,6 +42,9 @@ void LFGPlayerState::Clear()
     m_LockMap.clear();
     m_comment.clear();
     accept = LFG_ANSWER_PENDING;
+    m_proposal = NULL;
+    SetState(LFG_STATE_NONE);
+    m_teleported = false;
 }
 
 LFGLockStatusMap* LFGPlayerState::GetLockMap()
@@ -137,6 +140,7 @@ void LFGGroupState::Clear()
     m_roleCheckCancelTime = 0;
     m_roleCheckState      = LFG_ROLECHECK_NONE;
     SetDungeon(NULL);
+    SetState(LFG_STATE_NONE);
 }
 
 uint8 LFGGroupState::GetRoles(LFGRoles role)
@@ -157,6 +161,11 @@ uint8 LFGGroupState::GetVotesNeeded() const
     return m_votesNeeded;
 }
 
+void LFGGroupState::SetVotesNeeded(uint8 votes)
+{
+    m_votesNeeded = votes;
+}
+
 uint8 LFGGroupState::GetKicksLeft() const
 {
     return m_kicksLeft;
@@ -166,6 +175,7 @@ void LFGGroupState::StartRoleCheck()
 {
     m_roleCheckCancelTime = time_t(time(NULL)) + LFG_TIME_ROLECHECK;
     SetRoleCheckState(LFG_ROLECHECK_INITIALITING);
+    SetState(LFG_STATE_ROLECHECK);
 }
 
 bool LFGGroupState::IsRoleCheckActive()
@@ -203,6 +213,8 @@ LFGProposal::LFGProposal(LFGDungeonEntry const* _dungeon)
     m_state = LFG_PROPOSAL_INITIATING;
     m_group = NULL;
     m_cancelTime = 0;
+    declinerGuids.clear();
+    playerGuids.clear();
 }
 
 void LFGProposal::Start()
@@ -239,6 +251,9 @@ bool LFGProposal::IsDecliner(ObjectGuid guid)
 {
     if (guid.IsEmpty())
         return true;
+
+    if (declinerGuids.empty())
+        return false;
 
     LFGQueueSet::iterator itr = declinerGuids.find(guid);
     if (itr != declinerGuids.end())

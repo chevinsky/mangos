@@ -272,14 +272,14 @@ void WorldSession::HandleBattleGroundPlayerPositionsOpcode( WorldPacket & /*recv
                     ++count2;
 
                 WorldPacket data(MSG_BATTLEGROUND_PLAYER_POSITIONS, (4+4+16*count1+16*count2));
-                data << count1;                                     // alliance flag holders count - obsolete, now always 0
+                data << count1;                             // alliance flag holders count - obsolete, now always 0
                 /*for(uint8 i = 0; i < count1; ++i)
                 {
-                    data << uint64(0);                              // guid
-                    data << (float)0;                               // x
-                    data << (float)0;                               // y
+                    data << ObjectGuid(0);                  // guid
+                    data << (float)0;                       // x
+                    data << (float)0;                       // y
                 }*/
-                data << count2;                                     // horde flag holders count - obsolete, now count of next fields
+                data << count2;                             // horde flag holders count - obsolete, now count of next fields
                 if (ali_plr)
                 {
                     data << ObjectGuid(ali_plr->GetObjectGuid());
@@ -491,7 +491,7 @@ void WorldSession::HandleBattleFieldPortOpcode( WorldPacket &recv_data )
                 if (at)
                 {
                     DEBUG_LOG("UPDATING memberLost's personal arena rating for %s by opponents rating: %u, because he has left queue!", _player->GetGuidStr().c_str(), ginfo.OpponentsTeamRating);
-                    at->MemberLost(_player, ginfo.OpponentsMatchmakerRating);
+                    at->MemberLost(_player, ginfo.OpponentsTeamRating);
                     at->SaveToDB();
                 }
             }
@@ -500,7 +500,7 @@ void WorldSession::HandleBattleFieldPortOpcode( WorldPacket &recv_data )
             bgQueue.RemovePlayer(_player->GetObjectGuid(), true);
             // player left queue, we should update it - do not update Arena Queue
             if (ginfo.arenaType == ARENA_TYPE_NONE)
-                sBattleGroundMgr.ScheduleQueueUpdate(ginfo.ArenaMatchmakerRating, ginfo.arenaType, bgQueueTypeId, bgTypeId, bracketEntry->GetBracketId());
+                sBattleGroundMgr.ScheduleQueueUpdate(ginfo.ArenaTeamRating, ginfo.arenaType, bgQueueTypeId, bgTypeId, bracketEntry->GetBracketId());
             SendPacket(&data);
             DEBUG_LOG("Battleground: player %s (%u) left queue for bgtype %u, queue type %u.", _player->GetName(), _player->GetGUIDLow(), bg->GetTypeID(), bgQueueTypeId);
             break;
@@ -661,8 +661,7 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
         return;
 
     ArenaType arenatype;
-    uint32 arenaRating = 0;
-    uint32 matchmakerRating = 0;
+    uint32 arenaRating = 0;    
 
     switch(arenaslot)
     {
@@ -738,10 +737,9 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
             return;
         }
         // get the team rating for queue
-        arenaRating = at->GetRating();
-        matchmakerRating = at->GetAverageMMR(grp);
+        arenaRating = at->GetRating();        
         // the arena team id must match for everyone in the group
-/*        // get the personal ratings for queue
+        // get the personal ratings for queue
         uint32 avg_pers_rating = 0;
 
         for(Group::member_citerator citr = grp->GetMemberSlots().begin(); citr != grp->GetMemberSlots().end(); ++citr)
@@ -756,9 +754,10 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
 
         avg_pers_rating /= grp->GetMembersCount();
 
+        
         // if avg personal rating is more than 150 points below the teams rating, the team will be queued against an opponent matching or similar to the average personal rating
         if (avg_pers_rating + 150 < arenaRating)
-            arenaRating = avg_pers_rating;*/ 
+            arenaRating = avg_pers_rating; 
     }
 
     BattleGroundQueue &bgQueue = sBattleGroundMgr.m_BattleGroundQueues[bgQueueTypeId];
@@ -770,9 +769,9 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
         {
             DEBUG_LOG("Battleground: arena join as group start");
             if (isRated)
-                DEBUG_LOG("Battleground: arena team id %u, leader %s queued with matchmaker rating %u for type %u",_player->GetArenaTeamId(arenaslot),_player->GetName(),matchmakerRating,arenatype);
+                DEBUG_LOG("Battleground: arena team id %u, leader %s queued with rating %u for type %u",_player->GetArenaTeamId(arenaslot),_player->GetName(),arenaRating,arenatype);
  
-            GroupQueueInfo * ginfo = bgQueue.AddGroup(_player, grp, bgTypeId, bracketEntry, arenatype, isRated, false, arenaRating, matchmakerRating, ateamId);
+            GroupQueueInfo * ginfo = bgQueue.AddGroup(_player, grp, bgTypeId, bracketEntry, arenatype, isRated, false, arenaRating, ateamId);
             avgTime = bgQueue.GetAverageQueueWaitTime(ginfo, bracketEntry->GetBracketId());
         }
 
@@ -805,7 +804,7 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
     }
     else
     {
-        GroupQueueInfo * ginfo = bgQueue.AddGroup(_player, NULL, bgTypeId, bracketEntry, arenatype, isRated, false, arenaRating, matchmakerRating, ateamId);
+        GroupQueueInfo * ginfo = bgQueue.AddGroup(_player, NULL, bgTypeId, bracketEntry, arenatype, isRated, false, arenaRating, ateamId);
         uint32 avgTime = bgQueue.GetAverageQueueWaitTime(ginfo, bracketEntry->GetBracketId());
         uint32 queueSlot = _player->AddBattleGroundQueueId(bgQueueTypeId);
 
@@ -815,12 +814,12 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
         SendPacket(&data);
         DEBUG_LOG("Battleground: player joined queue for arena, skirmish, bg queue type %u bg type %u: GUID %u, NAME %s",bgQueueTypeId,bgTypeId,_player->GetGUIDLow(), _player->GetName());
     }
-    sBattleGroundMgr.ScheduleQueueUpdate(matchmakerRating, arenatype, bgQueueTypeId, bgTypeId, bracketEntry->GetBracketId());
+    sBattleGroundMgr.ScheduleQueueUpdate(arenaRating, arenatype, bgQueueTypeId, bgTypeId, bracketEntry->GetBracketId());
  }
 
 void WorldSession::HandleReportPvPAFK( WorldPacket & recv_data )
 {
-    uint64 playerGuid;
+    ObjectGuid playerGuid;
     recv_data >> playerGuid;
     Player *reportedPlayer = sObjectMgr.GetPlayer(playerGuid);
 

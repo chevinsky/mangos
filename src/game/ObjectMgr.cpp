@@ -1648,17 +1648,17 @@ void ObjectMgr::RemoveGameobjectFromGrid(uint32 guid, GameObjectData const* data
 }
 
 // name must be checked to correctness (if received) before call this function
-uint64 ObjectMgr::GetPlayerGUIDByName(std::string name) const
+ObjectGuid ObjectMgr::GetPlayerGuidByName(std::string name) const
 {
-    uint64 guid = 0;
+    ObjectGuid guid;
 
     CharacterDatabase.escape_string(name);
 
     // Player name safe to sending to DB (checked at login) and this function using
     QueryResult *result = CharacterDatabase.PQuery("SELECT guid FROM characters WHERE name = '%s'", name.c_str());
-    if(result)
+    if (result)
     {
-        guid = ObjectGuid(HIGHGUID_PLAYER, (*result)[0].GetUInt32()).GetRawValue();
+        guid = ObjectGuid(HIGHGUID_PLAYER, (*result)[0].GetUInt32());
 
         delete result;
     }
@@ -3603,7 +3603,7 @@ void ObjectMgr::LoadArenaTeams()
     // load arena_team members
     QueryResult *arenaTeamMembersResult = CharacterDatabase.Query(
     //          0           1           2           3         4             5           6               7    8
-        "SELECT arenateamid,member.guid,played_week,wons_week,played_season,wons_season,name,class "
+        "SELECT arenateamid,member.guid,played_week,wons_week,played_season,wons_season,personal_rating,name,class "
         "FROM arena_team_member member LEFT JOIN characters chars on member.guid = chars.guid ORDER BY member.arenateamid ASC");
 
     barGoLink bar( (int)result->GetRowCount() );

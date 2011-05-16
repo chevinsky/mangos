@@ -157,9 +157,9 @@ class LFGMgr
         // Update system
         void Update(uint32 diff);
 
-        void TruCompleteGroups(LFGType type);
-        bool TruCompleteGroup(Group* group, Player* player);
-        bool TruCreateGroup(LFGType type);
+        void TryCompleteGroups(LFGType type);
+        bool TryCompleteGroup(Group* group, Player* player);
+        bool TryCreateGroup(LFGType type);
 
         // Join system
         void Join(Player* player);
@@ -178,14 +178,16 @@ class LFGMgr
         // reward system
         void LoadRewards();
         LFGReward const* GetRandomDungeonReward(LFGDungeonEntry const* dungeon, Player* player);
-        void SendLFGRewards(Player* player);
-        void SendLFGReward(Player* player);
+        void SendLFGRewards(Group* group);
+        void SendLFGReward(Player* player, LFGDungeonEntry const* dungeon);
+        void DungeonEncounterReached(Group* group);
 
         // Proposal system
         uint32 CreateProposal(LFGDungeonEntry const* dungeon, Group* group = NULL, LFGQueueSet* playerGuids = NULL);
         bool SendProposal(uint32 ID, ObjectGuid guid);
         LFGProposal* GetProposal(uint32 ID);
-        void RemoveProposal(uint32 ID);
+        void RemoveProposal(Player* decliner, uint32 ID);
+        void RemoveProposal(uint32 ID, bool success = false);
         void UpdateProposal(uint32 ID, ObjectGuid guid, bool accept);
         void CleanupProposals();
         Player* LeaderElection(LFGQueueSet* playerGuids);
@@ -212,11 +214,14 @@ class LFGMgr
         void UpdateStatistic(LFGType type);
 
         // Role check system
+        void CleanupRoleChecks(LFGType type);
+        void StartRoleCheck(Group* group);
         void UpdateRoleCheck(Group* group);
         bool CheckRoles(Group* group, Player* player = NULL);
         bool CheckRoles(LFGRolesMap* roleMap);
         bool RoleChanged(Player* player, uint8 roles);
-        void SetGroupRoles(Group* group);
+        bool SetGroupRoles(Group* group, Player* player = NULL);
+        bool TrySetRoles(LFGRolesMap* roleMap);
 
         // Social check system
         bool HasIgnoreState(ObjectGuid guid1, ObjectGuid guid2);
@@ -230,7 +235,7 @@ class LFGMgr
 
         // Group operations
         void AddMemberToLFDGroup(ObjectGuid guid);
-        void RemoveMemberFromLFDGroup(ObjectGuid guid);
+        void RemoveMemberFromLFDGroup(Group* group, ObjectGuid guid);
 
         // Dungeon expand operations
         LFGDungeonSet ExpandRandomDungeonsForGroup(LFGDungeonEntry const* randomDungeon, LFGQueueSet playerGuids);
@@ -247,7 +252,7 @@ class LFGMgr
         LFGLockStatusMap GetPlayerLockMap(Player* player);
 
         // Search matrix
-        void AddToSearchMatrix(ObjectGuid guid);
+        void AddToSearchMatrix(ObjectGuid guid, bool inBegin = false);
         void RemoveFromSearchMatrix(ObjectGuid guid);
         LFGQueueSet* GetSearchVector(LFGDungeonEntry const* dungeon);
         bool IsInSearchFor(LFGDungeonEntry const* dungeon, ObjectGuid guid);
@@ -276,6 +281,7 @@ class LFGMgr
         LFGSearchMap    m_searchMatrix;                     // Search matrix
 
         uint32          m_updateTimer;                      // update timer for cleanup/statistic
+        uint32          m_updateTimer2;                     // update timer for LFR extend system
 
         LockType            i_lock;
 
