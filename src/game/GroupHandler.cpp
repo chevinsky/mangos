@@ -567,8 +567,7 @@ void WorldSession::HandleGroupChangeSubGroupOpcode( WorldPacket & recv_data )
         group->ChangeMembersGroup(player, groupNr);
     else
     {
-        ObjectGuid guid = sObjectMgr.GetPlayerGuidByName(name.c_str());
-        if (!guid.IsEmpty())
+        if (ObjectGuid guid = sObjectMgr.GetPlayerGuidByName(name.c_str()))
             group->ChangeMembersGroup(guid, groupNr);
     }
 }
@@ -664,7 +663,7 @@ void WorldSession::HandleRaidReadyCheckFinishedOpcode( WorldPacket & /*recv_data
     //if(!group)
     //    return;
 
-    //if(!group->IsLeader(GetPlayer()->GetGUID()) && !group->IsAssistant(GetPlayer()->GetGUID()))
+    //if(!group->IsLeader(GetPlayer()->GetObjectGuid()) && !group->IsAssistant(GetPlayer()->GetObjectGuid()))
     //    return;
 
     // Is any reaction need?
