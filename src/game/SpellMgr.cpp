@@ -1880,6 +1880,7 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
         return false;
 
     // Specific spell family spells
+	// also some SpellIconID exceptions related to late checks (isModifier)
     switch(spellInfo_1->SpellFamilyName)
     {
         case SPELLFAMILY_GENERIC:
@@ -1942,8 +1943,29 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                 // Repentance removes Righteous Vengeance
                 if (spellInfo_1->Id == 20066 && spellInfo_2->Id == 61840)
                     return true;
+
+                // Swift Retribution / Improved Devotion Aura (talents) and Paladin Auras
+                if (((spellInfo_1->SpellFamilyFlags2 & 0x00000020) && (spellInfo_2->SpellIconID == 291 || spellInfo_2->SpellIconID == 3028)) ||
+                    ((spellInfo_2->SpellFamilyFlags2 & 0x00000020) && (spellInfo_1->SpellIconID == 291 || spellInfo_1->SpellIconID == 3028)))
+                    return false;
+
+                // Beacon of Light and Light's Beacon
+                if ((spellInfo_1->SpellIconID == 3032) && (spellInfo_2->SpellIconID == 3032))
+                    return false;
+
+                // Concentration Aura and Improved Concentration Aura and Aura Mastery
+                if ((spellInfo_1->SpellIconID == 1487) && (spellInfo_2->SpellIconID == 1487))
+                    return false;
+
+                // Seal of Corruption (caster/target parts stacking allow, other stacking checked by spell specs)
+                if (spellInfo_1->SpellIconID == 2292 && spellInfo_2->SpellIconID == 2292)
+                    return false;
+
+                // Divine Sacrifice and Divine Guardian
+                if (spellInfo_1->SpellIconID == 3837 && spellInfo_2->SpellIconID == 3837)
+                    return false;
             }
-             break;
+            break;
         case SPELLFAMILY_DEATHKNIGHT:
             if (spellInfo_2->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT)
             {
@@ -1969,6 +1991,7 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
     if (spellInfo_1->SpellIconID == spellInfo_2->SpellIconID &&
         spellInfo_1->SpellIconID != 0 && spellInfo_2->SpellIconID != 0)
     {
+        // exception checks made above
         bool isModifier = false;
         for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
         {
