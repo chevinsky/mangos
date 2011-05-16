@@ -216,25 +216,22 @@ bool TargetedMovementGeneratorMedium<T,D>::Update(T &owner, const uint32 & time_
         PathNode next_point(x, y, z);
 
         bool targetMoved = false, needNewDest = false;
-        bool forceRecalc = i_recalculateTravel || owner.IsStopped();
-        if (i_path && !forceRecalc)
+        if (i_path)
         {
             PathNode end_point = i_path->getEndPosition();
             next_point = i_path->getNextPosition();
 
             needNewDest = i_destinationHolder.HasArrived() && !inRange(next_point, i_path->getActualEndPosition(), dist, dist);
-            if(!needNewDest)
-            {
-                // GetClosePoint() will always return a point on the ground, so we need to
-                // handle the difference in elevation when the creature is flying
-                if (owner.GetTypeId() == TYPEID_UNIT && ((Creature*)&owner)->CanFly())
-                    targetMoved = i_target->GetDistanceSqr(end_point.x, end_point.y, end_point.z) > dist*dist;
-                else
-                    targetMoved = i_target->GetDistance2d(end_point.x, end_point.y) > dist;
-            }
+
+            // GetClosePoint() will always return a point on the ground, so we need to
+            // handle the difference in elevation when the creature is flying
+            if (owner.GetTypeId() == TYPEID_UNIT && ((Creature*)&owner)->CanFly())
+                targetMoved = i_target->GetDistanceSqr(end_point.x, end_point.y, end_point.z) >= dist*dist;
+            else
+                targetMoved = i_target->GetDistance2d(end_point.x, end_point.y) >= dist;
         }
 
-        if (!i_path || targetMoved || needNewDest || forceRecalc)
+        if (!i_path || targetMoved || needNewDest || i_recalculateTravel || owner.IsStopped())
         {
             // (re)calculate path
             _setTargetLocation(owner);
