@@ -1902,6 +1902,11 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                         (spellInfo_2->Id == 68529 && spellInfo_1->Id == 68530))
                         return true;
 
+                    // BG_WS_SPELL_FOCUSED_ASSAULT & BG_WS_SPELL_BRUTAL_ASSAULT
+                    if ((spellInfo_1->Id == 46392 && spellInfo_2->Id == 46393) ||
+                        (spellInfo_1->Id == 46393 && spellInfo_2->Id == 46392))
+                        return true;
+
                     break;
                 }
             }
