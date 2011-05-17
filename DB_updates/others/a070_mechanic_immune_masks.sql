@@ -37,5 +37,5 @@ UPDATE creature_template SET mechanic_immune_mask = mechanic_immune_mask&~2048 W
 );
 
 -- some uncommon immunities
--- bleed 16384 for mechanical
-UPDATE creature_template SET mechanic_immune_mask = mechanic_immune_mask|16384 WHERE `type` = 9;
+-- bleed 16384 for mechanical vehicles
+UPDATE creature_template SET mechanic_immune_mask = mechanic_immune_mask|16384 WHERE `type` = 9 AND vehicle_id != 0;
