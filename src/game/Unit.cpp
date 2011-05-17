@@ -4483,7 +4483,7 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
         {
             SpellAuraHolder *foundHolder = iter->second;
             if (foundHolder->GetCasterGuid() == holder->GetCasterGuid() ||
-                holder->GetCasterGuid().IsPet() && holder->GetCasterGuid().IsPet())
+                foundHolder->GetCasterGuid().IsPet() && holder->GetCasterGuid().IsPet())
             {
                 // Aura can stack on self -> Stack it;
                 if (aurSpellInfo->StackAmount)
@@ -7238,9 +7238,9 @@ uint32 Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
         {
             case 20911:                                     // Blessing of Sanctuary
             case 25899:                                     // Greater Blessing of Sanctuary
-                TakenTotalMod *= ((*itr)->GetModifier()->m_amount + 100.0f) / 100.0f;
-                break;
-            default:
+                // don't stack with Vigilance dmg reduction effect (calculated above)
+                if (!HasAura(68066))
+                    TakenTotalMod *= ((*i)->GetModifier()->m_amount + 100.0f) / 100.0f;
                 break;
         }
     }
@@ -8285,7 +8285,9 @@ uint32 Unit::MeleeDamageBonusTaken(Unit *pCaster, uint32 pdamage,WeaponAttackTyp
                 break;
             case 20911:                                     // Blessing of Sanctuary
             case 25899:                                     // Greater Blessing of Sanctuary
-                TakenPercent *= ((*i)->GetModifier()->m_amount + 100.0f) / 100.0f;
+                // don't stack with Vigilance dmg reduction effect (calculated above)
+                if (!HasAura(68066))
+                    TakenPercent *= ((*i)->GetModifier()->m_amount + 100.0f) / 100.0f;
                 break;
         }
     }
