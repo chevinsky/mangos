@@ -1409,14 +1409,48 @@ void Aura::TriggerSpell()
 //                    case 27819: break;
 //                    // Controller Timer
 //                    case 28095: break;
-//                    // Stalagg Chain
-//                    case 28096: break;
-//                    // Stalagg Tesla Passive
-//                    case 28097: break;
-//                    // Feugen Tesla Passive
-//                    case 28109: break;
-//                    // Feugen Chain
-//                    case 28111: break;
+                    // Stalagg Chain
+                    case 28096:
+                        if (Unit* pCaster = GetCaster() )
+                        {
+                            if (pCaster->GetDistance(target) > 60.0f )
+                            {
+                                pCaster->RemoveAurasDueToSpell(28096);
+                                pCaster->InterruptNonMeleeSpells(false);
+                                if (!pCaster->HasAura(28097))
+                                    pCaster->CastSpell(pCaster, 28097, true, 0, this, target->GetGUID());
+                            }
+                        }
+                        return;
+                    // Stalagg Tesla Passive
+                    case 28097:
+                        if (Unit* pStalagg = GetCaster() )
+                        {
+                            if (!target->IsNonMeleeSpellCasted(true) && pStalagg->getVictim() && pStalagg->getStandState() != UNIT_STAND_STATE_DEAD)
+                                target->CastSpell(pStalagg->getVictim(), 28099, false, 0, this);
+                        }
+                        return;
+                    // Feugen Tesla Passive
+                    case 28109:
+                        if (Unit* pFeugen = GetCaster() )
+                        {
+                            if (!target->IsNonMeleeSpellCasted(true) && pFeugen->getVictim() && pFeugen->getStandState() != UNIT_STAND_STATE_DEAD)
+                                target->CastSpell(pFeugen->getVictim(), 28099, false, 0, this);
+                        }
+                        return;
+                    // Feugen Chain
+                    case 28111:
+                        if (Unit* pCaster = GetCaster() )
+                        {
+                            if (pCaster->GetDistance(target) > 60.0f )
+                            {
+                                pCaster->RemoveAurasDueToSpell(28111);
+                                pCaster->InterruptNonMeleeSpells(false);
+                                if (!pCaster->HasAura(28109))
+                                    pCaster->CastSpell(pCaster, 28109, true, 0, this, target->GetGUID());
+                            }
+                        }
+                        return;
 //                    // Mark of Didier
 //                    case 28114: break;
 //                    // Communique Timer, camp
@@ -2057,6 +2091,18 @@ void Aura::TriggerSpell()
                 triggerTarget->CastCustomSpell(triggerTarget, trigger_spell_id, &m_modifier.m_amount, NULL, NULL, true, NULL, this);
                 return;
             }
+            case 28084:                                     // Negative Charge
+            {
+                if (triggerTarget->HasAura(29660) )
+                    triggerTarget->RemoveAura(29660, EFFECT_INDEX_0);
+                break;
+            }
+            case 28059:                                     // Positive Charge
+            {
+                if (triggerTarget->HasAura(29659) )
+                    triggerTarget->RemoveAura(29659, EFFECT_INDEX_0);
+                break;
+            }
             case 33525:                                     // Ground Slam
                 triggerTarget->CastSpell(triggerTarget, trigger_spell_id, true, NULL, this, casterGUID);
                 return;
@@ -2666,6 +2712,14 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
 
                 return;
             }
+            case 28059:                                     // Positive Charge (Thaddius)
+                if (target->HasAura(29659, EFFECT_INDEX_0) )
+                    target->RemoveAurasDueToSpell(29659);
+                return;
+            case 28084:                                     // Negative Charge (Thaddius)
+                if (target->HasAura(29660, EFFECT_INDEX_0) )
+                    target->RemoveAurasDueToSpell(29660);
+                return;
             case 28169:                                     // Mutating Injection
             {
                 // Mutagen Explosion

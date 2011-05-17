@@ -378,6 +378,33 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                         damage = damage * unitTarget->GetMaxHealth() / 100;
                         break;
                     }
+                    // Thaddius' charges, don't deal dmg to units with the same charge but give them the buff:
+                    // Positive Charge
+                    case 28062:
+                    {
+                        // If target is not (+) charged, then just deal dmg
+                        if (!unitTarget->HasAura(28059, EFFECT_INDEX_0) )
+                            break;
+
+                        if (m_caster != unitTarget)
+                            m_caster->CastSpell(m_caster, 29659, true);
+
+                        damage = 0;
+                        break;
+                    }
+                    // Negative Charge
+                    case 28085:
+                    {
+                        // If target is not (-) charged, then just deal dmg
+                        if (!unitTarget->HasAura(28084, EFFECT_INDEX_0) )
+                            break;
+
+                        if (m_caster != unitTarget)
+                            m_caster->CastSpell(m_caster, 29660, true);
+
+                        damage = 0;
+                        break;
+                    }
                     // Cataclysmic Bolt
                     case 38441:
                     {
@@ -1401,6 +1428,20 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         m_caster->CastSpell(unitTarget, 29294, true);
 
                     return;
+                }
+                case 28089:                                 // Polarity Shift (Thaddius - Naxxramas)
+                {
+                    if (!unitTarget)
+                        return;
+
+                    // neutralize the target
+                    if (unitTarget->HasAura(28059, EFFECT_INDEX_0) ) unitTarget->RemoveAurasDueToSpell(28059);
+                    if (unitTarget->HasAura(29659, EFFECT_INDEX_0) ) unitTarget->RemoveAurasDueToSpell(29659);
+                    if (unitTarget->HasAura(28084, EFFECT_INDEX_0) ) unitTarget->RemoveAurasDueToSpell(28084);
+                    if (unitTarget->HasAura(29660, EFFECT_INDEX_0) ) unitTarget->RemoveAurasDueToSpell(29660);
+
+                    unitTarget->CastSpell(unitTarget, roll_chance_i(50) ? 28059 : 28084, true);
+                    break;
                 }
                 case 29200:                                 // Purify Helboar Meat
                 {
@@ -2495,6 +2536,31 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
 
                     // Mammoth Explosion Spell Spawner
                     unitTarget->CastSpell(unitTarget, 54581, true, m_CastItem);
+                    return;
+                }
+                case 54517:                                 // Magnetic Pull
+                {
+                    if (m_caster->GetTypeId() != TYPEID_UNIT || unitTarget->GetTypeId() != TYPEID_UNIT)
+                        return;
+
+                    // Feugen pulls from Stalagg
+                    if (m_caster->GetEntry() == 15930)
+                    {
+                        if (unitTarget->GetEntry() == 15929)
+                        {
+                            if (Unit *pVictim = unitTarget->getVictim() )
+                                pVictim->CastSpell(m_caster, 54485, true);
+                        }
+                    }
+                    // Stalagg pulls from Feugen
+                    else if (m_caster->GetEntry() == 15929)
+                    {
+                        if (unitTarget->GetEntry() == 15930)
+                        {
+                            if (Unit *pVictim = unitTarget->getVictim() )
+                                pVictim->CastSpell(m_caster, 54485, true);
+                        }
+                    }
                     return;
                 }
                 case 55004:                                 // Nitro Boosts
