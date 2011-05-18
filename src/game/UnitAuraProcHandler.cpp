@@ -3404,8 +3404,8 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 //case 44819: break;                        // Hate Monster (Spar Buddy) (>30% Health)
                 //case 44820: break;                        // Hate Monster (Spar) (<30%)
                 case 45057:                                 // Evasive Maneuvers (Commendation of Kael`thas trinket)
-                    // reduce you below $s1% health
-                    if (GetHealth() - damage > GetMaxHealth() * triggerAmount / 100)
+                    // reduce you below $s1% health (in fact in this specific case can proc from any attack while health in result less $s1%)
+                    if (int32(GetHealth()) - int32(damage) >= int32(GetMaxHealth() * triggerAmount / 100))
                         return SPELL_AURA_PROC_FAILED;
                     break;
                 //case 45903: break:                        // Offensive State
@@ -3473,17 +3473,19 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 }
                 case 64568:                                 // Blood Reserve
                 {
-                    // Check health condition - should drop to less 35%
-                    if (!(10*(int32(GetHealth() - damage)) < 3.5 * GetMaxHealth()))
-                       return SPELL_AURA_PROC_FAILED;
-
-                    if (!roll_chance_f(50))
+                    // When your health drops below 35% ....
+                    int32 health35 = int32(GetMaxHealth() * 35 / 100);
+                    if (int32(GetHealth()) - int32(damage) >= health35 || int32(GetHealth()) < health35)
                         return SPELL_AURA_PROC_FAILED;
 
                     trigger_spell_id = 64569;
-                    basepoints[0] = triggerAmount;
+
+                    // need scale damage base at stack size
+                    if (SpellEntry const* trigEntry = sSpellStore.LookupEntry(trigger_spell_id))
+                        basepoints[EFFECT_INDEX_0] = trigEntry->CalculateSimpleValue(EFFECT_INDEX_0) * triggeredByAura->GetStackAmount();
+
                     break;
-                } 
+                }
                 case 67702:                                 // Death's Choice, Item - Coliseum 25 Normal Melee Trinket
                 {
                     float stat = 0.0f;
@@ -3623,7 +3625,8 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
             else if (auraSpellInfo->Id == 28845)
             {
                 // When your health drops below 20% ....
-                if (GetHealth() - damage > GetMaxHealth() / 5 || GetHealth() < GetMaxHealth() / 5)
+                int32 health20 = int32(GetMaxHealth()) / 5;
+                if (int32(GetHealth()) - int32(damage) >= health20 || int32(GetHealth()) < health20)
                     return SPELL_AURA_PROC_FAILED;
             }
             // Decimation
@@ -3906,8 +3909,9 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
             // Nature's Guardian
             else if (auraSpellInfo->SpellIconID == 2013)
             {
-                // Check health condition - should drop to less 30% (damage deal after this!)
-                if (!(10*(int32(GetHealth() - damage)) < int32(3 * GetMaxHealth())))
+                // Check health condition - should drop to less 30% (trigger at any attack with result health less 30%, independent original health state)
+                int32 health30 = int32(GetMaxHealth()) * 3 / 10;
+                if (int32(GetHealth()) - int32(damage) >= health30)
                     return SPELL_AURA_PROC_FAILED;
 
                 if(pVictim && pVictim->isAlive())
