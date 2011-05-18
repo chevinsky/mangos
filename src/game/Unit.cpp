@@ -239,7 +239,8 @@ Unit::Unit() :
         m_auraModifiersGroup[i][BASE_PCT] = 1.0f;
         m_auraModifiersGroup[i][TOTAL_VALUE] = 0.0f;
         m_auraModifiersGroup[i][TOTAL_PCT] = 1.0f;
-        m_auraModifiersGroup[i][NONSTACKING_VALUE] = 0.0f;
+        m_auraModifiersGroup[i][NONSTACKING_VALUE_POS] = 0.0f;
+        m_auraModifiersGroup[i][NONSTACKING_VALUE_NEG] = 0.0f;
         m_auraModifiersGroup[i][NONSTACKING_PCT] = 0.0f;
         m_auraModifiersGroup[i][NONSTACKING_PCT_MINOR] = 0.0f;
     }
@@ -4382,25 +4383,26 @@ float Unit::CheckAuraStackingAndApply(Aura *Aur, UnitMods unitMod, UnitModifierT
 
     if (!Aur->IsStacking())
     {
+        bool bIsPositive = amount > 0;
+        float current = GetModifierValue(unitMod, modifierType);
+
         if (modifierType == TOTAL_VALUE)
-            modifierType = NONSTACKING_VALUE;
+            modifierType = bIsPositive ? NONSTACKING_VALUE_POS : NONSTACKING_VALUE_NEG;
         else if(modifierType == TOTAL_PCT)
             modifierType = NONSTACKING_PCT;
         // need a sanity check here?
 
         // special case: minor and major categories for armor reduction debuffs
         // TODO: find some better way of dividing to ategories
-        if (Aur->GetId() == 770 ||                                              // Faerie Fire
+        if (Aur->GetModifier()->m_auraname == SPELL_AURA_MOD_RESISTANCE_PCT &&
+            (Aur->GetId() == 770 ||                                              // Faerie Fire
             spellProto->SpellFamilyName == SPELLFAMILY_HUNTER &&                // Sting (Hunter Pet)
             spellProto->SpellFamilyFlags & UI64LIT(0x1000000000000000) ||
             spellProto->SpellFamilyName == SPELLFAMILY_WARLOCK &&               // Curse of Weakness
-            spellProto->SpellFamilyFlags & UI64LIT(0x0000000000008000))
+            spellProto->SpellFamilyFlags & UI64LIT(0x0000000000008000)))
         {
             modifierType = NONSTACKING_PCT_MINOR;
         }
-
-        float current = GetModifierValue(unitMod, modifierType);
-        bool bIsPositive = amount > 0;
 
         if (bIsPositive && amount < current ||               // value does not change as a result of applying/removing this aura
             !bIsPositive && amount > current)
@@ -4435,7 +4437,7 @@ float Unit::CheckAuraStackingAndApply(Aura *Aur, UnitMods unitMod, UnitModifierT
 
         HandleStatModifier(unitMod, modifierType, amount, apply);
 
-        if (modifierType == NONSTACKING_VALUE)
+        if (modifierType == NONSTACKING_VALUE_POS || modifierType == NONSTACKING_VALUE_NEG)
             amount -= current;
         else
         {
@@ -4529,8 +4531,9 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
                 break;
             }
 
-            // Judgements are always single 
-            else if (GetSpellSpecific(holder->GetId()) == SPELL_JUDGEMENT) 
+            // Judgements and scrolls are always single 
+            if (GetSpellSpecific(holder->GetId()) == SPELL_JUDGEMENT ||
+                GetSpellSpecific(holder->GetId()) == SPELL_SCROLL)
             {
                 RemoveSpellAuraHolder(foundHolder,AURA_REMOVE_BY_STACK);
                 break;
@@ -4547,15 +4550,12 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
                 // m_auraname can be modified to SPELL_AURA_NONE for area auras, use original
                 AuraType aurNameReal = AuraType(aurSpellInfo->EffectApplyAuraName[i]);
 
-                switch (aurNameReal)
+                if (aurNameReal == SPELL_AURA_PERIODIC_ENERGIZE)
                 {
-                    case SPELL_AURA_PERIODIC_ENERGIZE:      // all or self or clear non-stackable
-                        // can be only single (this check done at _each_ aura add
-                        RemoveSpellAuraHolder(foundHolder,AURA_REMOVE_BY_STACK);
-                        bStop = true;
-                        break;
-                    default:
-                        break;
+                    // can be only single (this check done at _each_ aura add
+                    RemoveSpellAuraHolder(foundHolder,AURA_REMOVE_BY_STACK);
+                    bStop = true;
+                    break;
                 }
             }
 
@@ -9787,7 +9787,8 @@ bool Unit::HandleStatModifier(UnitMods unitMod, UnitModifierType modifierType, f
             break;
         case NONSTACKING_PCT:
         case NONSTACKING_PCT_MINOR:
-        case NONSTACKING_VALUE:
+        case NONSTACKING_VALUE_POS:
+        case NONSTACKING_VALUE_NEG:
             m_auraModifiersGroup[unitMod][modifierType] = amount;
             break;
         default:
@@ -9850,11 +9851,11 @@ float Unit::GetModifierValue(UnitMods unitMod, UnitModifierType modifierType) co
         if(m_auraModifiersGroup[unitMod][modifierType] <= 0.0f)
             return 0.0f;
         else
-            return m_auraModifiersGroup[unitMod][TOTAL_PCT] * (m_auraModifiersGroup[unitMod][NONSTACKING_PCT] + m_auraModifiersGroup[unitMod][NONSTACKING_PCT_MINOR] + 100.0f) / 100.0f;
+            return m_auraModifiersGroup[unitMod][TOTAL_PCT] * ((m_auraModifiersGroup[unitMod][NONSTACKING_PCT] + m_auraModifiersGroup[unitMod][NONSTACKING_PCT_MINOR] + 100.0f) / 100.0f);
     }
     else if(modifierType == TOTAL_VALUE)
     {
-        return m_auraModifiersGroup[unitMod][TOTAL_VALUE] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE];
+        return m_auraModifiersGroup[unitMod][TOTAL_VALUE] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE_POS] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE_NEG];
     }
     else
         return m_auraModifiersGroup[unitMod][modifierType];
@@ -9870,8 +9871,8 @@ float Unit::GetTotalStatValue(Stats stat) const
     // value = ((base_value * base_pct) + total_value) * total_pct
     float value  = m_auraModifiersGroup[unitMod][BASE_VALUE] + GetCreateStat(stat);
     value *= m_auraModifiersGroup[unitMod][BASE_PCT];
-    value += (m_auraModifiersGroup[unitMod][TOTAL_VALUE] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE]);
-    value *= (m_auraModifiersGroup[unitMod][TOTAL_PCT] * (m_auraModifiersGroup[unitMod][NONSTACKING_PCT] + m_auraModifiersGroup[unitMod][NONSTACKING_PCT_MINOR] + 100.0f) / 100.0f);
+    value += (m_auraModifiersGroup[unitMod][TOTAL_VALUE] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE_POS] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE_NEG]);
+    value *= m_auraModifiersGroup[unitMod][TOTAL_PCT] * ((m_auraModifiersGroup[unitMod][NONSTACKING_PCT] + m_auraModifiersGroup[unitMod][NONSTACKING_PCT_MINOR] + 100.0f) / 100.0f);
 
     return value;
 }
@@ -9889,8 +9890,8 @@ float Unit::GetTotalAuraModValue(UnitMods unitMod) const
 
     float value  = m_auraModifiersGroup[unitMod][BASE_VALUE];
     value *= m_auraModifiersGroup[unitMod][BASE_PCT];
-    value += (m_auraModifiersGroup[unitMod][TOTAL_VALUE] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE]);
-    value *= (m_auraModifiersGroup[unitMod][TOTAL_PCT] * (m_auraModifiersGroup[unitMod][NONSTACKING_PCT] + m_auraModifiersGroup[unitMod][NONSTACKING_PCT_MINOR] + 100.0f) / 100.0f);
+    value += (m_auraModifiersGroup[unitMod][TOTAL_VALUE] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE_POS] + m_auraModifiersGroup[unitMod][NONSTACKING_VALUE_NEG]);
+    value *= m_auraModifiersGroup[unitMod][TOTAL_PCT] * ((m_auraModifiersGroup[unitMod][NONSTACKING_PCT] + m_auraModifiersGroup[unitMod][NONSTACKING_PCT_MINOR] + 100.0f) / 100.0f);
 
     return value;
 }
