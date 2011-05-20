@@ -1433,7 +1433,7 @@ void GameObject::Use(Unit* user)
 
             // dismount players
             if (user && user->IsMounted())
-                user->Unmount();
+                user->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
 
             AddUse();
             break;
