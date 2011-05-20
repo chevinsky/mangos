@@ -6150,7 +6150,14 @@ bool Unit::Attack(Unit *victim, bool meleeAttack)
 
     // player cannot attack while mounted or in vehicle
     if(GetTypeId()==TYPEID_PLAYER && (IsMounted() || GetVehicle()))
-        return false;
+    {
+        // some exceptions
+        if (!(GetVehicle() && GetVehicle()->GetSeatInfo(this) &&
+            GetVehicle()->GetSeatInfo(this)->m_flags & (SEAT_FLAG_CAN_CAST | SEAT_FLAG_CAN_ATTACK)))
+        {
+            return false;
+        }
+    }
 
     // nobody can attack GM in GM-mode
     if(victim->GetTypeId()==TYPEID_PLAYER)
@@ -11883,12 +11890,26 @@ void Unit::EnterVehicle(VehicleKit *vehicle, int8 seatId)
 
         SetTransport(NULL);
     }
+
+    // Hover Disk - Arcane Immunity hack... :/
+    if (m_pVehicle->GetBase()->GetEntry() == 30248)
+    {
+        if (GetTypeId() == TYPEID_PLAYER)
+            ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_ARCANE, true);
+    }
 }
 
 void Unit::ExitVehicle()
 {
     if(!m_pVehicle)
         return;
+
+    // Hover Disk - Arcane Immunity hack... :/
+    if (m_pVehicle->GetBase()->GetEntry() == 30248)
+    {
+        if (GetTypeId() == TYPEID_PLAYER)
+            ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_ARCANE, false);
+    }
 
     m_pVehicle->RemovePassenger(this);
     m_pVehicle = NULL;

@@ -181,6 +181,7 @@ bool VehicleKit::AddPassenger(Unit *passenger, int8 seatId)
         {
             case 33118:                  // Ignis slag pot
             case 32934:                  // Kologarn Right Arm
+            case 30248:                  // Hover Disk
                 break;
             default:
                 passenger->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);

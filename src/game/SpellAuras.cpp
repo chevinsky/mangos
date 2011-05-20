@@ -9101,7 +9101,16 @@ void Aura::HandleAuraControlVehicle(bool apply, bool Real)
         if (caster->GetTypeId() == TYPEID_PLAYER)
             ((Player*)caster)->RemovePet(PET_SAVE_AS_CURRENT);
 
-        int8 seat = target->GetVehicleKit()->HasEmptySeat(GetModifier()->m_amount) ? GetModifier()->m_amount : -1;
+        // TODO: find a way to make this work properly
+        // int8 seat = target->GetVehicleKit()->HasEmptySeat(GetModifier()->m_amount) ? GetModifier()->m_amount : -1;
+        // caster->EnterVehicle(target->GetVehicleKit(), seat);
+
+        int8 seat = -1;
+
+        // Slag Pot
+        if (GetId() == 62708 || GetId() == 62711)
+            seat = GetModifier()->m_amount;
+
         caster->EnterVehicle(target->GetVehicleKit(), seat);
     }
     else
@@ -9812,16 +9821,24 @@ void SpellAuraHolder::SetStackAmount(uint32 stackAmount)
                     aur->ApplyModifier(false, true);
                     aur->GetModifier()->m_amount = amount;
                     aur->ApplyModifier(true, true);
-                   /* // change duration if aura refreshes
+                    // change duration if aura refreshes
                     if (refresh)
                     {
+                        int32 maxduration = GetSpellMaxDuration(aur->GetSpellProto());
+                        int32 duration = GetSpellDuration(aur->GetSpellProto());
+
                         // new duration based on combo points
-                        if (GetSpellDuration(aur->GetSpellProto()) != GetSpellMaxDuration(aur->GetSpellProto()))
+                        if (duration != maxduration)
                         {
                             if (Unit *caster = aur->GetCaster())
-                                aur->SetAuraMaxDuration(caster->CalculateBaseSpellDuration(aur->GetSpellProto(), &aur->GetModifier()->periodictime));
+                            {
+                                duration += int32((maxduration - duration) * caster->GetComboPoints() / 5);
+                                SetAuraMaxDuration(duration);
+                                SetAuraDuration(duration);
+                                refresh = false;
+                            }
                         }
-                    }*/ 
+                    }
                 }
             }
         }
