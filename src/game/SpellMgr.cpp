@@ -1959,113 +1959,18 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                 if (((spellInfo_1->SpellFamilyFlags2 & 0x00000020) && (spellInfo_2->SpellIconID == 291 || spellInfo_2->SpellIconID == 3028)) ||
                     ((spellInfo_2->SpellFamilyFlags2 & 0x00000020) && (spellInfo_1->SpellIconID == 291 || spellInfo_1->SpellIconID == 3028)))
                     return false;
-
-                // Beacon of Light and Light's Beacon
-                if ((spellInfo_1->SpellIconID == 3032) && (spellInfo_2->SpellIconID == 3032))
-                    return false;
-
-                // Concentration Aura and Improved Concentration Aura and Aura Mastery
-                if ((spellInfo_1->SpellIconID == 1487) && (spellInfo_2->SpellIconID == 1487))
-                    return false;
-
-                // Seal of Corruption (caster/target parts stacking allow, other stacking checked by spell specs)
-                if (spellInfo_1->SpellIconID == 2292 && spellInfo_2->SpellIconID == 2292)
-                    return false;
-
-                // Divine Sacrifice and Divine Guardian
-                if (spellInfo_1->SpellIconID == 3837 && spellInfo_2->SpellIconID == 3837)
-                    return false;
-
-                // *Sanctity Aura -> Unstable Currents and other (multi-family check)
-                if(spellInfo_1->SpellIconID==502 && spellInfo_2->SpellFamilyName == SPELLFAMILY_GENERIC && spellInfo_2->SpellIconID==502 && spellInfo_2->SpellVisual[0]==969 )
-                    return false;
-
-                // *Seal of Command and Band of Eternal Champion (multi-family check)
-                if(spellInfo_1->SpellIconID==561 && spellInfo_1->SpellVisual[0]==7992 && spellId_2 == 35081)
-                    return false;
             }
-
-            // Inner Fire and Consecration
-            if(spellInfo_2->SpellFamilyName == SPELLFAMILY_PRIEST)
-                if(spellInfo_1->SpellIconID == 51 && spellInfo_2->SpellIconID == 51)
-                    return false;
-
-            // Combustion and Fire Protection Aura (multi-family check)
-            if (spellInfo_2->Id == 11129 && spellInfo_1->SpellIconID == 33 && spellInfo_1->SpellVisual[0] == 321)
-                return false;
-
-            // *Sanctity Aura -> Unstable Currents and other (multi-family check)
-            if (spellInfo_1->SpellIconID==502 && spellInfo_2->SpellFamilyName == SPELLFAMILY_GENERIC &&
-                spellInfo_2->SpellIconID==502 && spellInfo_2->SpellVisual[0]==969)
-                return false;
-
-            // *Seal of Command and Band of Eternal Champion (multi-family check)
-            if (spellInfo_1->SpellIconID==561 && spellInfo_1->SpellVisual[0]==7992 && spellId_2 == 35081)
-                return false;
-
-            break;
-        case SPELLFAMILY_SHAMAN:
-            if (spellInfo_2->SpellFamilyName == SPELLFAMILY_SHAMAN)
-            {
-                // Windfury weapon
-                if (spellInfo_1->SpellIconID==220 && spellInfo_2->SpellIconID==220 &&
-                    spellInfo_1->SpellFamilyFlags != spellInfo_2->SpellFamilyFlags)
-                    return false;
-
-                // Ghost Wolf
-                if (spellInfo_1->SpellIconID == 67 && spellInfo_2->SpellIconID == 67)
-                    return false;
-
-                // Totem of Wrath (positive/negative), ranks checked early
-                if (spellInfo_1->SpellIconID == 2019 && spellInfo_2->SpellIconID == 2019)
-                    return false;
-            }
-            break;
         case SPELLFAMILY_DEATHKNIGHT:
             if (spellInfo_2->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT)
             {
                 // Crypt Fever and Ebon Plague
                 if((spellInfo_1->SpellIconID == 264 && spellInfo_2->SpellIconID == 1933) ||
                    (spellInfo_2->SpellIconID == 264 && spellInfo_1->SpellIconID == 1933))
-                {
                     return true;
-                }
             }
             break;
         default:
             break;
-    }
-
-    if (spellInfo_1->SpellFamilyName == SPELLFAMILY_GENERIC || spellInfo_2->SpellFamilyName == SPELLFAMILY_GENERIC)
-        return false;
-
-    if (spellInfo_1->SpellFamilyName != spellInfo_2->SpellFamilyName)
-        return false;
-
-    // more generic checks
-    if (spellInfo_1->SpellIconID == spellInfo_2->SpellIconID &&
-        spellInfo_1->SpellIconID != 0 && spellInfo_2->SpellIconID != 0)
-    {
-        // some exception checks made above
-        bool isModifier = false;
-        for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
-        {
-            // stack all DoT auras
-            if (spellInfo_1->EffectApplyAuraName[i] == SPELL_AURA_PERIODIC_DAMAGE ||
-                spellInfo_1->EffectApplyAuraName[i] == SPELL_AURA_PERIODIC_DAMAGE_PERCENT ||
-                spellInfo_2->EffectApplyAuraName[i] == SPELL_AURA_PERIODIC_DAMAGE ||
-                spellInfo_2->EffectApplyAuraName[i] == SPELL_AURA_PERIODIC_DAMAGE_PERCENT)
-                return false;
-
-            if (spellInfo_1->EffectApplyAuraName[i] == SPELL_AURA_ADD_FLAT_MODIFIER ||
-                spellInfo_1->EffectApplyAuraName[i] == SPELL_AURA_ADD_PCT_MODIFIER  ||
-                spellInfo_2->EffectApplyAuraName[i] == SPELL_AURA_ADD_FLAT_MODIFIER ||
-                spellInfo_2->EffectApplyAuraName[i] == SPELL_AURA_ADD_PCT_MODIFIER )
-                isModifier = true;
-        }
-
-        if (!isModifier)
-            return true;
     }
 
     if (IsRankSpellDueToSpell(spellInfo_1, spellId_2))
