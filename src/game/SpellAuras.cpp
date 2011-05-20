@@ -339,7 +339,7 @@ pAuraHandler AuraHandler[TOTAL_AURAS]=
     &Aura::HandleAuraModAttackPowerOfArmor,                 //285 SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR  implemented in Player::UpdateAttackPowerAndDamage
     &Aura::HandleNoImmediateEffect,                         //286 SPELL_AURA_ABILITY_PERIODIC_CRIT      implemented in Aura::IsCritFromAbilityAura called from Aura::PeriodicTick
     &Aura::HandleNoImmediateEffect,                         //287 SPELL_AURA_DEFLECT_SPELLS             implemented in Unit::MagicSpellHitResult and Unit::MeleeSpellHitResult
-    &Aura::HandleNULL,                                      //288 increase parry/deflect, prevent attack (single spell used 67801)
+    &Aura::HandleNoImmediateEffect,                         //288 SPELL_AURA_MOD_PARRY_FROM_BEHIND_PERCENT percent from normal parry/deflect applied to from behind attack case (single spell used 67801, also look 4.1.0 spell 97574)
     &Aura::HandleUnused,                                    //289 unused (3.2.2a)
     &Aura::HandleAuraModAllCritChance,                      //290 SPELL_AURA_MOD_ALL_CRIT_CHANCE
     &Aura::HandleNoImmediateEffect,                         //291 SPELL_AURA_MOD_QUEST_XP_PCT           implemented in Player::GiveXP
@@ -429,35 +429,11 @@ m_isPersistent(false), m_in_use(0), m_spellAuraHolder(holder)
     // Apply periodic time mod
     if (modOwner && m_modifier.periodictime)
     {
-        modOwner->ApplySpellMod(spellproto->Id, SPELLMOD_ACTIVATION_TIME, m_modifier.periodictime);
-
-        bool applyHaste = (spellproto->AttributesEx5 & SPELL_ATTR_EX5_AFFECTED_BY_HASTE) != 0;
-
-        if (!applyHaste)
+        uint32 newperiodictime  = modOwner->CalculateAuraPeriodicTimeWithHaste(spellproto, m_modifier.periodictime);
+        if (newperiodictime != m_modifier.periodictime)
         {
-            Unit::AuraList const& mModByHaste = caster->GetAurasByType(SPELL_AURA_MOD_PERIODIC_HASTE);
-            for (Unit::AuraList::const_iterator itr = mModByHaste.begin(); itr != mModByHaste.end(); ++itr)
-            {
-                if ((*itr)->isAffectedOnSpell(spellproto))
-                {
-                    applyHaste = true;
-                    break;
-                }
-            }
-        }
-
-        // Apply haste to duration
-        if (applyHaste)
-        {
-            int32 oldDuration = GetSpellMaxDuration(spellproto); // Maximum duration of aura
-            int32 new_duration = GetHolder()->GetAuraDuration(); // Modified duration of aura
-            uint32 _periodicTime = m_modifier.periodictime; // Periodic time
-            // Calculate new periodic timer
-            int32 ticks = oldDuration / _periodicTime; // Calculate tick count based on old duration
-
-            _periodicTime =  ticks == 0 ? new_duration : new_duration / ticks; // Recalculate periodic time
-
-            m_modifier.periodictime = _periodicTime; // Set new Periodic time
+            m_modifier.periodictime = newperiodictime;
+            modOwner->ApplySpellMod(spellproto->Id, SPELLMOD_ACTIVATION_TIME, m_modifier.periodictime);
         }
     }
 
