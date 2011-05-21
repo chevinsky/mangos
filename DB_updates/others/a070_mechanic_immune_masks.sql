@@ -21,7 +21,8 @@ UPDATE creature_template SET mechanic_immune_mask = mechanic_immune_mask&~335544
 32857, 33694, -- Stormcaller Brundir
 33515, 34175, -- Aurayia
 27975, 31384, -- Maiden of Grief
-27978, 31386  -- Sjonnir
+27978, 31386, -- Sjonnir
+29305, 30530  -- Moorabi
 );
 
 -- charm
