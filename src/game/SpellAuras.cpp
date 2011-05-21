@@ -5400,7 +5400,7 @@ void Aura::HandleModMechanicImmunity(bool apply, bool /*Real*/)
         {
             GameObject* obj = target->GetGameObject(48018);
             if (obj)
-                ((Player*)target)->TeleportTo(obj->GetMapId(),obj->GetPositionX(),obj->GetPositionY(),obj->GetPositionZ(),obj->GetOrientation());
+                ((Player*)target)->TeleportTo(obj->GetMapId(),obj->GetPositionX(),obj->GetPositionY(),obj->GetPositionZ(),obj->GetOrientation(), TELE_TO_NOT_LEAVE_COMBAT);
         }
     }
 
@@ -5792,6 +5792,7 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
         {
             switch (spell->Id)
             {
+                // Demonic Circle
                 case 48018:
                     if (apply)
                         target->CastSpell(target, 62388, true);
@@ -5800,7 +5801,7 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
                         target->RemoveGameObject(spell->Id,true);
                         target->RemoveAurasDueToSpell(62388);
                     }
-                break;
+                    break;
             }
         }
         case SPELLFAMILY_HUNTER:
