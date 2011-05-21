@@ -3705,8 +3705,12 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                     (aurSpellInfo->SpellIconID == 15 && aurSpellInfo->Dispel == 0 &&
                     (aurMechMask & (1 << (MECHANIC_SNARE-1))) == 0))
                 {
-                    ++iter;
-                    continue;
+                    // Aftermath - should be removed by shapeshifting
+                    if ((*iter)->GetId() != 18118)
+                    {
+                        ++iter;
+                        continue;
+                    }
                 }
 
                 // All OK, remove aura now
